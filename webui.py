@@ -35,17 +35,6 @@ from modules import timer
 startup_timer = timer.startup_timer
 startup_timer.record("launcher")
 
-from huggingface_hub import hf_hub_download
-import boto3
-import json
-from modules.sync_models import initial_s3_download,sync_s3_folder
-
-sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd-webui-controlnet'))
-sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_dreambooth_extension'))
-
-if cmd_opts.train:
-    from extensions.sd_dreambooth_extension.scripts.train import train_dreambooth
-
 import torch
 import pytorch_lightning   # noqa: F401 # pytorch_lightning should be imported after torch, but it re-enables warnings on import so import once to disable them
 warnings.filterwarnings(action="ignore", category=DeprecationWarning, module="pytorch_lightning")
@@ -91,6 +80,17 @@ import modules.ui
 from modules import modelloader
 from modules.shared import cmd_opts
 import modules.hypernetworks.hypernetwork
+
+from huggingface_hub import hf_hub_download
+import boto3
+import json
+from modules.sync_models import initial_s3_download,sync_s3_folder
+
+sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd-webui-controlnet'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_dreambooth_extension'))
+
+if cmd_opts.train:
+    from extensions.sd_dreambooth_extension.scripts.train import train_dreambooth
 
 startup_timer.record("other imports")
 
