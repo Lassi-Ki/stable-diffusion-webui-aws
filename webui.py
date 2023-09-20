@@ -64,6 +64,7 @@ def webui():
 
     if launch_api:
         global cache
+        from modules import shared
 
         models_config_s3uri = os.environ.get('models_config_s3uri', None)
         if models_config_s3uri:
