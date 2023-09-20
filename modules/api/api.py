@@ -34,6 +34,12 @@ import piexif
 import piexif.helper
 from contextlib import closing
 
+from typing import Union
+import traceback
+from modules.sd_vae import reload_vae_weights, refresh_vae_list
+import uuid
+import json
+import requests
 
 def script_name_to_index(name, scripts):
     try:
@@ -75,6 +81,28 @@ def verify_url(url):
 
     return True
 
+def decode_to_image(encoding):
+    image = None
+    try:
+        if encoding.startswith("http://") or encoding.startswith("https://"):
+            response = requests.get(encoding)
+            if response.status_code == 200:
+                encoding = response.text
+                image = Image.open(BytesIO(response.content))
+        elif encoding.startswith("s3://"):
+            bucket, key = shared.get_bucket_and_key(encoding)
+            response = shared.s3_client.get_object(
+                Bucket=bucket,
+                Key=key
+            )
+            image = Image.open(response['Body'])
+        else:
+            if encoding.startswith("data:image/"):
+                encoding = encoding.split(";")[1].split(",")[1]
+            image = Image.open(BytesIO(base64.b64decode(encoding)))
+        return image
+    except Exception as err:
+        raise HTTPException(status_code=500, detail="Invalid encoded image")
 
 def decode_base64_to_image(encoding):
     if encoding.startswith("http://") or encoding.startswith("https://"):
@@ -132,6 +160,34 @@ def encode_pil_to_base64(image):
 
     return base64.b64encode(bytes_data)
 
+def export_pil_to_bytes(image, quality):
+    with io.BytesIO() as output_bytes:
+
+        if opts.samples_format.lower() == 'png':
+            use_metadata = False
+            metadata = PngImagePlugin.PngInfo()
+            for key, value in image.info.items():
+                if isinstance(key, str) and isinstance(value, str):
+                    metadata.add_text(key, value)
+                    use_metadata = True
+            image.save(output_bytes, format="PNG", pnginfo=(metadata if use_metadata else None), quality=quality if quality else opts.jpeg_quality)
+
+        elif opts.samples_format.lower() in ("jpg", "jpeg", "webp"):
+            parameters = image.info.get('parameters', None)
+            exif_bytes = piexif.dump({
+                "Exif": { piexif.ExifIFD.UserComment: piexif.helper.UserComment.dump(parameters or "", encoding="unicode") }
+            })
+            if opts.samples_format.lower() in ("jpg", "jpeg"):
+                image.save(output_bytes, format="JPEG", exif = exif_bytes, quality=quality if quality else opts.jpeg_quality)
+            else:
+                image.save(output_bytes, format="WEBP", exif = exif_bytes, quality=quality if quality else opts.jpeg_quality)
+
+        else:
+            raise HTTPException(status_code=500, detail="Invalid image format")
+
+        bytes_data = output_bytes.getvalue()
+
+    return bytes_data
 
 def api_middleware(app: FastAPI):
     rich_available = False
@@ -243,6 +299,8 @@ class Api:
         self.add_api_route("/sdapi/v1/reload-checkpoint", self.reloadapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/scripts", self.get_scripts_list, methods=["GET"], response_model=models.ScriptsList)
         self.add_api_route("/sdapi/v1/script-info", self.get_script_info, methods=["GET"], response_model=List[models.ScriptInfo])
+        self.add_api_route("/invocations", self.invocations, methods=["POST"], response_model=Union[models.TextToImageResponse, models.ImageToImageResponse, models.ExtrasSingleImageResponse, models.ExtrasBatchImagesResponse, models.InvocationsErrorResponse, models.InterrogateResponse])
+        self.add_api_route("/ping", self.ping, methods=["GET"], response_model=models.PingResponse)
 
         if shared.cmd_opts.api_server_stop:
             self.add_api_route("/sdapi/v1/server-kill", self.kill_webui, methods=["POST"])
@@ -786,3 +844,89 @@ class Api:
         shared.state.server_command = "stop"
         return Response("Stopping.")
 
+    def post_invocations(self, b64images, quality):
+        if shared.generated_images_s3uri:
+            bucket, key = shared.get_bucket_and_key(shared.generated_images_s3uri)
+            if key.endswith('/'):
+                key = key[ : -1]
+            images = []
+            for b64image in b64images:
+                bytes_data = export_pil_to_bytes(decode_to_image(b64image), quality)
+                image_id = datetime.datetime.now().strftime(f"%Y%m%d%H%M%S-{uuid.uuid4()}")
+                suffix = opts.samples_format.lower()
+                shared.s3_client.put_object(
+                    Body=bytes_data,
+                    Bucket=bucket,
+                    Key=f'{key}/{image_id}.{suffix}'
+                )
+                images.append(f's3://{bucket}/{key}/{image_id}.{suffix}')
+            return images
+        else:
+            return b64images
+
+    def invocations(self, req: models.InvocationsRequest):
+        with self.invocations_lock:
+            print('-------invocation------')
+            print(req)
+
+            try:
+                if req.vae != None:
+                    shared.opts.data['sd_vae'] = req.vae
+                    refresh_vae_list()
+
+                if req.model != None:
+                    sd_model_checkpoint = shared.opts.sd_model_checkpoint
+                    shared.opts.sd_model_checkpoint = req.model
+                    with self.queue_lock:
+                        reload_model_weights()
+                    if sd_model_checkpoint == shared.opts.sd_model_checkpoint:
+                        reload_vae_weights()
+
+                quality = req.quality
+
+                embeddings_s3uri = shared.cmd_opts.embeddings_s3uri
+                hypernetwork_s3uri = shared.cmd_opts.hypernetwork_s3uri
+
+                if hypernetwork_s3uri !='':
+                    shared.s3_download(hypernetwork_s3uri, shared.cmd_opts.hypernetwork_dir)
+                    shared.reload_hypernetworks()
+
+                if req.options != None:
+                    options = json.loads(req.options)
+                    for key in options:
+                        shared.opts.data[key] = options[key]
+
+                if req.task == 'text-to-image':
+                    if embeddings_s3uri != '':
+                        shared.s3_download(embeddings_s3uri, shared.cmd_opts.embeddings_dir)
+                        sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
+                    response = self.text2imgapi(req.txt2img_payload)
+                    response.images = self.post_invocations(response.images, quality)
+                    return response
+                elif req.task == 'image-to-image':
+                    if embeddings_s3uri != '':
+                        shared.s3_download(embeddings_s3uri, shared.cmd_opts.embeddings_dir)
+                        sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
+                    response = self.img2imgapi(req.img2img_payload)
+                    response.images = self.post_invocations(response.images, quality)
+                    return response
+                elif req.task == 'extras-single-image':
+                    response = self.extras_single_image_api(req.extras_single_payload)
+                    response.image = self.post_invocations([response.image], quality)[0]
+                    return response
+                elif req.task == 'extras-batch-images':
+                    response = self.extras_batch_images_api(req.extras_batch_payload)
+                    response.images = self.post_invocations(response.images, quality)
+                    return response
+                elif req.task == 'interrogate':
+                    response = self.interrogateapi(req.interrogate_payload)
+                    return response
+                else:
+                    return models.InvocationsErrorResponse(error = f'Invalid task - {req.task}')
+
+            except Exception as e:
+                traceback.print_exc()
+                return models.InvocationsErrorResponse(error = str(e))
+
+    def ping(self):
+        return {'status': 'Healthy'}
