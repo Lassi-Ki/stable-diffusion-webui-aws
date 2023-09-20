@@ -86,6 +86,7 @@ refresh_checkpoints = shared_items.refresh_checkpoints
 list_samplers = shared_items.list_samplers
 reload_hypernetworks = shared_items.reload_hypernetworks
 
+import threading
 models_s3_bucket = None
 s3_folder_sd = None
 s3_folder_cn = None
