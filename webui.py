@@ -19,6 +19,7 @@ import boto3
 import sys
 import json
 from modules.sync_models import initial_s3_download,sync_s3_folder
+from modules.shared_cmd_options import cmd_opts
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd-webui-controlnet'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_dreambooth_extension'))
