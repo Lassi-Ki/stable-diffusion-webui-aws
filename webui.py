@@ -7,6 +7,13 @@ from modules import timer
 from modules import initialize_util
 from modules import initialize
 
+startup_timer = timer.startup_timer
+startup_timer.record("launcher")
+
+initialize.imports()
+
+initialize.check_versions()
+
 from huggingface_hub import hf_hub_download
 import boto3
 import sys
@@ -18,15 +25,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_dreamboot
 
 if cmd_opts.train:
     from extensions.sd_dreambooth_extension.scripts.train import train_dreambooth
-
-
-startup_timer = timer.startup_timer
-startup_timer.record("launcher")
-
-initialize.imports()
-
-initialize.check_versions()
-
 
 def create_api(app):
     from modules.api.api import Api
