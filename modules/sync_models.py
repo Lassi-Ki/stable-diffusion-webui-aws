@@ -219,7 +219,9 @@ def sync_s3_folder(local_folder, cache_dir,mode):
             # cn models sync not supported temporally due to an unfixed bug
             elif mode == 'cn':
                 with queue_lock:
-                    script_callbacks.update_cn_models_callback()
+                    import requests
+                    response = requests.get('http://0.0.0.0:8080/controlnet/model_list', params={'update': True})
+                    print(response.text)
             elif mode == 'lora':
                 print('Nothing To do')
 
