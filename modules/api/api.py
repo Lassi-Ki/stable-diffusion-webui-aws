@@ -300,7 +300,7 @@ class Api:
         self.add_api_route("/sdapi/v1/reload-checkpoint", self.reloadapi, methods=["POST"])
         self.add_api_route("/sdapi/v1/scripts", self.get_scripts_list, methods=["GET"], response_model=models.ScriptsList)
         self.add_api_route("/sdapi/v1/script-info", self.get_script_info, methods=["GET"], response_model=List[models.ScriptInfo])
-        self.add_api_route("/invocations", self.invocations, methods=["POST"], response_model=Union[models.TextToImageResponse, models.ImageToImageResponse, models.ExtrasSingleImageResponse, models.ExtrasBatchImagesResponse, models.InvocationsErrorResponse, models.InterrogateResponse])
+        self.add_api_route("/invocations", self.invocations, methods=["POST"], response_model=Any)
         self.add_api_route("/ping", self.ping, methods=["GET"], response_model=models.PingResponse)
 
         if shared.cmd_opts.api_server_stop:
@@ -899,7 +899,7 @@ class Api:
 
                 if req.task == 'text-to-image':
                     if embeddings_s3uri != '':
-                        response = requests.get('http://0.0.0.0:8080/controlnet/model_list', params={'update': True})
+                        response = requests.get('/controlnet/model_list', params={'update': True})
                         print('Controlnet models: ', response.text)
 
                         shared.s3_download(embeddings_s3uri, shared.cmd_opts.embeddings_dir)
@@ -908,7 +908,7 @@ class Api:
                     response.images = self.post_invocations(response.images, quality)
                     return response
                 elif req.task == 'image-to-image':
-                    response = requests.get('http://0.0.0.0:8080/controlnet/model_list', params={'update': True})
+                    response = requests.get('/controlnet/model_list', params={'update': True})
                     print('Controlnet models: ', response.text)
 
                     if embeddings_s3uri != '':
@@ -928,6 +928,10 @@ class Api:
                 elif req.task == 'interrogate':
                     response = self.interrogateapi(req.interrogate_payload)
                     return response
+                elif req.task == 'sd-models':
+                    response = self.get_sd_models()
+                elif req.task.startswith('/'):
+                    response = requests.post(url=req.task, json=req.extra_payload)
                 else:
                     return models.InvocationsErrorResponse(error = f'Invalid task - {req.task}')
 
