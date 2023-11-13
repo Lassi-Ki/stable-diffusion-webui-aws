@@ -928,10 +928,9 @@ class Api:
                 elif req.task == 'interrogate':
                     response = self.interrogateapi(req.interrogate_payload)
                     return response
-                elif req.task == 'sd-models':
-                    response = self.get_sd_models()
                 elif req.task.startswith('/'):
                     response = requests.post(url=req.task, json=req.extra_payload)
+                    return response
                 else:
                     return models.InvocationsErrorResponse(error = f'Invalid task - {req.task}')
 
