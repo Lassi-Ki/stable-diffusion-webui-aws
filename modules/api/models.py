@@ -325,7 +325,7 @@ class InvocationsRequest(BaseModel):
     extras_single_payload: Optional[ExtrasSingleImageRequest]
     extras_batch_payload: Optional[ExtrasBatchImagesRequest]
     interrogate_payload: Optional[InterrogateRequest]
-    extra_payload: Optional[Any]
+    extra_payload: Optional[str]
 
 
 class InvocationsErrorResponse(BaseModel):

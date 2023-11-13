@@ -929,8 +929,14 @@ class Api:
                     response = self.interrogateapi(req.interrogate_payload)
                     return response
                 elif req.task.startswith('/'):
-                    response = requests.post(url=req.task, json=req.extra_payload)
-                    return response
+                    if req.extra_payload:
+                        response = requests.post(url=f'http://0.0.0.0:8080{req.task}', json=req.extra_payload)
+                    else:
+                        response = requests.get(url=f'http://0.0.0.0:8080{req.task}')
+                    if response.status_code == 200:
+                        return json.loads(response.text)
+                    else:
+                        raise HTTPException(status_code=response.status_code, detail=response.text)
                 else:
                     return models.InvocationsErrorResponse(error = f'Invalid task - {req.task}')
 
