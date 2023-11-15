@@ -868,7 +868,7 @@ class Api:
     def invocations(self, req: models.InvocationsRequest):
         with self.invocations_lock:
             print('-------invocation------')
-            print(req)
+            print(req.task)
 
             try:
                 if req.vae != None:
