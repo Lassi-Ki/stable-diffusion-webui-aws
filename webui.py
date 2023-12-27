@@ -75,6 +75,8 @@ def webui():
             huggingface_models = json.loads(payload).get('huggingface_models', None)
             s3_models = json.loads(payload).get('s3_models', None)
             http_models = json.loads(payload).get('http_models', None)
+            s3_embeddings = json.loads(payload).get('s3_embeddings', None)
+            s3_vaes = json.loads(payload).get('s3_vaes', None)
         else:
             huggingface_models = os.environ.get('huggingface_models', None)
             huggingface_models = json.loads(huggingface_models) if huggingface_models else None
@@ -82,6 +84,10 @@ def webui():
             s3_models = json.loads(s3_models) if s3_models else None
             http_models = os.environ.get('http_models', None)
             http_models = json.loads(http_models) if http_models else None
+            s3_embeddings = os.environ.get('s3_embeddings', None)
+            s3_embeddings = json.loads(s3_embeddings) if s3_embeddings else None
+            s3_vaes = os.environ.get('s3_vaes', None)
+            s3_vaes = json.loads(s3_vaes) if s3_vaes else None
 
         if huggingface_models:
             for huggingface_model in huggingface_models:
@@ -108,6 +114,20 @@ def webui():
                 filename = http_model['filename']
                 name = http_model['name']
                 shared.http_download(uri, f'/tmp/models/{name}/{filename}')
+
+        if s3_embeddings:
+            print("s3_embeddings:", s3_embeddings)
+            for s3_embedding in s3_embeddings:
+                uri = s3_embedding['uri']
+                name = s3_embedding['name']
+                shared.s3_download(uri, f'/tmp/{name}')  # /tmp/embeddings
+
+        if s3_vaes:
+            print("s3_vaes:", s3_vaes)
+            for s3_vae in s3_vaes:
+                uri = s3_vae['uri']
+                name = s3_vae['name']
+                shared.s3_download(uri, f'/tmp/models/{name}')
 
         print(os.system('df -h'))
         sd_models_tmp_dir = f"{shared.tmp_models_dir}/Stable-diffusion/"
