@@ -22,6 +22,7 @@ checkpoints_loaded = collections.OrderedDict()
 
 def get_loaded_vae_name():
     if loaded_vae_file is None:
+        print("No VAE loaded")
         return None
 
     return os.path.basename(loaded_vae_file)
