@@ -348,6 +348,7 @@ def load_model_weights(model, checkpoint_info: CheckpointInfo, state_dict, timer
     sd_vae.clear_loaded_vae()
     vae_file, vae_source = sd_vae.resolve_vae(checkpoint_info.filename)
     sd_vae.load_vae(model, vae_file, vae_source)
+    print(f"Loaded VAE weights while loading model weights, {vae_source}: {vae_file}")
     timer.record("load VAE")
 
 

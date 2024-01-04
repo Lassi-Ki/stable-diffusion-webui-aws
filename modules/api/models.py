@@ -311,6 +311,14 @@ class ScriptInfo(BaseModel):
     is_img2img: bool = Field(default=None, title="IsImg2img", description="Flag specifying whether this script is an img2img script")
     args: List[ScriptArg] = Field(title="Arguments", description="List of script's arguments")
 
+
+class PayloadChecks(BaseModel):
+    sd_models: Optional[List[str]]
+    cn_models: Optional[List[str]]
+    lora_models: Optional[List[str]]
+    user_id: str = Field(..., title="User ID", description="The user ID (required)")
+
+
 class InvocationsRequest(BaseModel):
     task: str
     id: Optional[str]
@@ -323,6 +331,7 @@ class InvocationsRequest(BaseModel):
     extras_single_payload: Optional[ExtrasSingleImageRequest]
     extras_batch_payload: Optional[ExtrasBatchImagesRequest]
     interrogate_payload: Optional[InterrogateRequest]
+    extra_payloads: Optional[PayloadChecks]
 
 class InvocationsErrorResponse(BaseModel):
     error: str = Field(title="Invocation error", description="Error response from invocation.")

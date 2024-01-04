@@ -1,4 +1,6 @@
 import os,threading,psutil,json,time
+from typing import Optional
+
 import boto3
 import modules.shared as shared
 import modules.sd_models as sd_models
@@ -33,7 +35,7 @@ def check_space_s3_download(s3_client, bucket_name, s3_folder, local_folder, fil
             print(f'download_file success:from {bucket_name}/{src} to {dist}')
         except Exception as e:
             print(f'download_file error: from {bucket_name}/{src} to {dist}')
-            print(f"An error occurred: {e}") 
+            print(f"An error occurred: {e}")
             return False
         return True
     else:
@@ -58,7 +60,7 @@ def free_local_disk(local_folder, size,mode):
         os.remove(os.path.join(local_folder, filename))
         disk_usage = psutil.disk_usage('/tmp')
         freespace = disk_usage.free/(1024**3)
-        print(f"Remove file: {os.path.join(local_folder, filename)} now left space:{freespace}") 
+        print(f"Remove file: {os.path.join(local_folder, filename)} now left space:{freespace}")
     else:
         ## if ref_cnt == 0, then delete the oldest zero_ref one
         zero_ref_models = set([model[:model.rfind(" [")] for model, count in models_Ref.get_models_ref_dict().items() if count == 0])
@@ -66,14 +68,14 @@ def free_local_disk(local_folder, size,mode):
         # join with local
         files = [(os.path.join(local_folder, file), os.path.getctime(os.path.join(local_folder, file))) for file in zero_ref_models.intersection(local_files)]
         if len(files) == 0:
-            print(f"No files to remove in folder: {local_folder}, please remove some files in S3 bucket") 
+            print(f"No files to remove in folder: {local_folder}, please remove some files in S3 bucket")
             return
         files.sort(key=lambda x: x[1])
         oldest_file = files[0][0]
         os.remove(oldest_file)
         disk_usage = psutil.disk_usage('/tmp')
         freespace = disk_usage.free/(1024**3)
-        print(f"Remove file: {oldest_file} now left space:{freespace}") 
+        print(f"Remove file: {oldest_file} now left space:{freespace}")
         filename = os.path.basename(oldest_file)
 
 def list_s3_objects(s3_client, bucket_name, prefix=''):
@@ -96,7 +98,7 @@ def list_s3_objects(s3_client, bucket_name, prefix=''):
 
 
 def initial_s3_download(s3_client, s3_folder, local_folder,cache_dir,mode):
-    # Create tmp folders 
+    # Create tmp folders
     os.makedirs(os.path.dirname(local_folder), exist_ok=True)
     os.makedirs(os.path.dirname(cache_dir), exist_ok=True)
     print(f'create dir: {os.path.dirname(local_folder)}')
@@ -122,12 +124,12 @@ def initial_s3_download(s3_client, s3_folder, local_folder,cache_dir,mode):
             fnames_dict[root] = [filename]
     tmp_s3_files = {}
     for obj in s3_objects:
-        etag = obj['ETag'].strip('"').strip("'")   
+        etag = obj['ETag'].strip('"').strip("'")
         size = obj['Size']/(1024**3)
         filename = obj['Key'].replace(s3_folder, '').lstrip('/')
         tmp_s3_files[filename] = [etag,size]
-    
-    #only fetch the first model to download. 
+
+    #only fetch the first model to download.
     if mode == 'sd':
         s3_files = {}
         try:
@@ -142,20 +144,20 @@ def initial_s3_download(s3_client, s3_folder, local_folder,cache_dir,mode):
     # save the lastest one
     with open(s3_file_name, "w") as f:
         json.dump(s3_files, f)
-    
+
 def sync_s3_folder(local_folder, cache_dir,mode):
     s3 = boto3.client('s3')
     def sync(mode):
         # print (f'sync:{mode}')
         if mode == 'sd':
-            s3_folder = shared.s3_folder_sd 
+            s3_folder = shared.s3_folder_sd
         elif mode == 'cn':
-            s3_folder = shared.s3_folder_cn 
+            s3_folder = shared.s3_folder_cn
         elif mode == 'lora':
             s3_folder = shared.s3_folder_lora
-        else: 
+        else:
             s3_folder = ''
-        # Check and Create tmp folders 
+        # Check and Create tmp folders
         os.makedirs(os.path.dirname(local_folder), exist_ok=True)
         os.makedirs(os.path.dirname(cache_dir), exist_ok=True)
         s3_file_name = os.path.join(cache_dir,f's3_files_{mode}.json')
@@ -170,7 +172,7 @@ def sync_s3_folder(local_folder, cache_dir,mode):
         # Check if there are any new or deleted files
         s3_files = {}
         for obj in s3_objects:
-            etag = obj['ETag'].strip('"').strip("'")   
+            etag = obj['ETag'].strip('"').strip("'")
             size = obj['Size']/(1024**3)
             key = obj['Key'].replace(s3_folder, '').lstrip('/')
             s3_files[key] = [etag,size]
@@ -199,7 +201,7 @@ def sync_s3_folder(local_folder, cache_dir,mode):
             if os.path.isfile(os.path.join(local_folder, file)):
                 os.remove(os.path.join(local_folder, file))
                 print(f'remove file {os.path.join(local_folder, file)}')
-        # Add new files 
+        # Add new files
         for file in new_files.union(mod_files):
             registerflag = True
             retry = 3 ##retry limit times to prevent dead loop in case other folders is empty
@@ -224,7 +226,7 @@ def sync_s3_folder(local_folder, cache_dir,mode):
                 print('Nothing To do')
 
     # Create a thread function to keep syncing with the S3 folder
-    def sync_thread(mode):  
+    def sync_thread(mode):
         while True:
             syncLock.acquire()
             sync(mode)
@@ -234,3 +236,84 @@ def sync_s3_folder(local_folder, cache_dir,mode):
     thread.start()
     print (f'{mode}_sync thread start')
     return thread
+
+
+def get_s3_folder(mode):
+    if mode == 'sd':
+        return shared.s3_folder_sd
+    elif mode == 'cn':
+        return shared.s3_folder_cn
+    elif mode == 'lora':
+        return shared.s3_folder_lora
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+
+def get_local_folder(mode):
+    if mode == 'sd':
+        return f"{shared.tmp_models_dir}/Stable-diffusion/"
+    elif mode == 'cn':
+        return f"{shared.tmp_models_dir}/ControlNet/"
+    elif mode == 'lora':
+        return f"{shared.tmp_models_dir}/Lora/"
+    else:
+        raise ValueError(f"Unknown mode: {mode}")
+
+
+def get_disk_space_info():
+    disk_usage = psutil.disk_usage('/tmp')
+    total_space = disk_usage.total / (1024 ** 3)
+    used_space = disk_usage.used / (1024 ** 3)
+    free_space = disk_usage.free / (1024 ** 3)
+
+    return total_space, used_space, free_space
+
+
+def update_model_ref_count(mode, file_name, hash):
+    ref_format = '{0} [{1}]'.format(file_name, hash)
+    if mode == 'sd':
+        shared.sd_models_Ref.add_models_ref(ref_format)
+    elif mode == 'cn':
+        shared.cn_models_Ref.add_models_ref(ref_format)
+    elif mode == 'lora':
+        shared.lora_models_Ref.add_models_ref(ref_format)
+
+
+def sync_s3_files(file_names, mode) -> Optional[str]:
+    s3_client = boto3.client('s3')
+    s3_folder = get_s3_folder(mode)
+    local_folder = get_local_folder(mode)
+    bucket_name = shared.models_s3_bucket
+
+    for file_name in file_names:
+        try:
+            src = os.path.join(s3_folder, file_name)
+            dest = os.path.join(local_folder, file_name)
+
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+
+            if os.path.exists(dest):
+                print(f'File {file_name} already exists locally, skipping...')
+                continue
+
+            obj = s3_client.head_object(Bucket=bucket_name, Key=src)
+            size = obj['ContentLength'] / (1024 ** 3)
+
+            total_space, used_space, free_space = get_disk_space_info()
+            print(f"Total space: {total_space}, Used space: {used_space}, Free space: {free_space}")
+
+            if free_space - size >= FREESPACE:
+                s3_client.download_file(bucket_name, src, dest)
+                hs = sd_models.model_hash(dest)
+                update_model_ref_count(mode, file_name, hs)
+                print(f'Successfully synced file from {bucket_name}/{src} to {dest}')
+            else:
+                err = f'Not enough space to download the file: {file_name}'
+                print(err)
+                return err
+        except Exception as e:
+            err = f'Failed to sync file {file_name}: {e}'
+            print(err)
+            return err
+
+    return None

@@ -32,22 +32,28 @@ logging.getLogger("torch.distributed.nn").setLevel(logging.ERROR)  # sshh...
 logging.getLogger("xformers").addFilter(lambda record: 'A matching Triton is not available' not in record.getMessage())
 
 from modules import timer
+
 startup_timer = timer.startup_timer
 startup_timer.record("launcher")
 
 import torch
-import pytorch_lightning   # noqa: F401 # pytorch_lightning should be imported after torch, but it re-enables warnings on import so import once to disable them
+import \
+    pytorch_lightning  # noqa: F401 # pytorch_lightning should be imported after torch, but it re-enables warnings on import so import once to disable them
+
 warnings.filterwarnings(action="ignore", category=DeprecationWarning, module="pytorch_lightning")
 warnings.filterwarnings(action="ignore", category=UserWarning, module="torchvision")
 startup_timer.record("import torch")
 
 import gradio  # noqa: F401
+
 startup_timer.record("import gradio")
 
 from modules import paths, timer, import_hook, errors, devices  # noqa: F401
+
 startup_timer.record("setup paths")
 
 import ldm.modules.encoders.modules  # noqa: F401
+
 startup_timer.record("import ldm")
 
 from modules import extra_networks
@@ -58,7 +64,8 @@ if ".dev" in torch.__version__ or "+git" in torch.__version__:
     torch.__long_version__ = torch.__version__
     torch.__version__ = re.search(r'[\d.]+[\d]', torch.__version__).group(0)
 
-from modules import shared, sd_samplers, upscaler, extensions, localization, ui_tempdir, ui_extra_networks, config_states
+from modules import shared, sd_samplers, upscaler, extensions, localization, ui_tempdir, ui_extra_networks, \
+    config_states
 import modules.codeformer_model as codeformer
 import modules.face_restoration
 import modules.gfpgan_model as gfpgan
@@ -84,7 +91,7 @@ import modules.hypernetworks.hypernetwork
 from huggingface_hub import hf_hub_download
 import boto3
 import json
-from modules.sync_models import initial_s3_download,sync_s3_folder
+from modules.sync_models import initial_s3_download, sync_s3_folder
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd-webui-controlnet'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_dreambooth_extension'))
@@ -93,7 +100,6 @@ if cmd_opts.train:
     from extensions.sd_dreambooth_extension.scripts.train import train_dreambooth
 
 startup_timer.record("other imports")
-
 
 if cmd_opts.server_name:
     server_name = cmd_opts.server_name
@@ -212,6 +218,7 @@ def get_gradio_auth_creds() -> Iterable[tuple[str, ...]]:
     Convert the gradio_auth and gradio_auth_path commandline arguments into
     an iterable of (username, password) tuples.
     """
+
     def process_credential_line(s) -> tuple[str, ...] | None:
         s = s.strip()
         if not s:
@@ -246,12 +253,15 @@ def configure_sigint_handler():
 
 
 def configure_opts_onchange():
-    shared.opts.onchange("sd_model_checkpoint", wrap_queued_call(lambda: modules.sd_models.reload_model_weights()), call=False)
+    shared.opts.onchange("sd_model_checkpoint", wrap_queued_call(lambda: modules.sd_models.reload_model_weights()),
+                         call=False)
     shared.opts.onchange("sd_vae", wrap_queued_call(lambda: modules.sd_vae.reload_vae_weights()), call=False)
     shared.opts.onchange("sd_vae_as_default", wrap_queued_call(lambda: modules.sd_vae.reload_vae_weights()), call=False)
     shared.opts.onchange("temp_dir", ui_tempdir.on_tmpdir_changed)
     shared.opts.onchange("gradio_theme", shared.reload_gradio_theme)
-    shared.opts.onchange("cross_attention_optimization", wrap_queued_call(lambda: modules.sd_hijack.model_hijack.redo_hijack(shared.sd_model)), call=False)
+    shared.opts.onchange("cross_attention_optimization",
+                         wrap_queued_call(lambda: modules.sd_hijack.model_hijack.redo_hijack(shared.sd_model)),
+                         call=False)
     startup_timer.record("opts onchange")
 
 
@@ -406,6 +416,8 @@ def webui():
             huggingface_models = json.loads(payload).get('huggingface_models', None)
             s3_models = json.loads(payload).get('s3_models', None)
             http_models = json.loads(payload).get('http_models', None)
+            s3_embeddings = json.loads(payload).get('s3_embeddings', None)
+            s3_vaes = json.loads(payload).get('s3_vaes', None)
         else:
             huggingface_models = os.environ.get('huggingface_models', None)
             huggingface_models = json.loads(huggingface_models) if huggingface_models else None
@@ -413,6 +425,10 @@ def webui():
             s3_models = json.loads(s3_models) if s3_models else None
             http_models = os.environ.get('http_models', None)
             http_models = json.loads(http_models) if http_models else None
+            s3_embeddings = os.environ.get('s3_embeddings', None)
+            s3_embeddings = json.loads(s3_embeddings) if s3_embeddings else None
+            s3_vaes = os.environ.get('s3_vaes', None)
+            s3_vaes = json.loads(s3_vaes) if s3_vaes else None
 
         if huggingface_models:
             for huggingface_model in huggingface_models:
@@ -428,6 +444,7 @@ def webui():
                 )
 
         if s3_models:
+            print("s3_models:", s3_models)
             for s3_model in s3_models:
                 uri = s3_model['uri']
                 name = s3_model['name']
@@ -440,6 +457,22 @@ def webui():
                 name = http_model['name']
                 shared.http_download(uri, f'/tmp/models/{name}/{filename}')
 
+        if s3_embeddings:
+            print("s3_embeddings:", s3_embeddings)
+            for s3_embedding in s3_embeddings:
+                uri = s3_embedding['uri']
+                name = s3_embedding['name']
+                shared.s3_download(uri, f'/tmp/{name}')  # /tmp/embeddings
+
+        if s3_vaes:
+            print("s3_vaes:", s3_vaes)
+            for s3_vae in s3_vaes:
+                uri = s3_vae['uri']
+                name = s3_vae['name']
+                shared.s3_download(uri, f'/tmp/models/{name}')
+        else:
+            print("s3_vaes is None")
+
         print(os.system('df -h'))
         sd_models_tmp_dir = f"{shared.tmp_models_dir}/Stable-diffusion/"
         cn_models_tmp_dir = f"{shared.tmp_models_dir}/ControlNet/"
@@ -451,12 +484,13 @@ def webui():
         account_id = sts_client.get_caller_identity()['Account']
         sg_s3_bucket = f"sagemaker-{region_name}-{account_id}"
         if not shared.models_s3_bucket:
-            shared.models_s3_bucket = os.environ['sg_default_bucket'] if os.environ.get('sg_default_bucket') else sg_s3_bucket
+            shared.models_s3_bucket = os.environ['sg_default_bucket'] if os.environ.get(
+                'sg_default_bucket') else sg_s3_bucket
             shared.s3_folder_sd = "stable-diffusion-webui/models/Stable-diffusion"
             shared.s3_folder_cn = "stable-diffusion-webui/models/ControlNet"
             shared.s3_folder_lora = "stable-diffusion-webui/models/Lora"
-        #only download the cn models and the first sd model from default bucket, to accerlate the startup time
-        initial_s3_download(shared.s3_client, shared.s3_folder_sd, sd_models_tmp_dir,cache_dir,'sd')
+        # only download the cn models and the first sd model from default bucket, to accerlate the startup time
+        initial_s3_download(shared.s3_client, shared.s3_folder_sd, sd_models_tmp_dir, cache_dir, 'sd')
         sync_s3_folder(sd_models_tmp_dir, cache_dir, 'sd')
         sync_s3_folder(cn_models_tmp_dir, cache_dir, 'cn')
         sync_s3_folder(lora_models_tmp_dir, cache_dir, 'lora')
@@ -555,6 +589,7 @@ def webui():
         startup_timer.record("scripts unloaded callback")
         initialize_rest(reload_script_modules=True)
 
+
 if cmd_opts.train:
     def train():
         initialize()
@@ -574,4 +609,3 @@ if __name__ == "__main__":
         api_only()
     else:
         webui()
-

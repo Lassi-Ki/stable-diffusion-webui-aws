@@ -70,7 +70,7 @@ devices.device, devices.device_interrogate, devices.device_gfpgan, devices.devic
     (devices.cpu if any(y in cmd_opts.use_cpu for y in [x, 'all']) else devices.get_optimal_device() for x in ['sd', 'interrogate', 'gfpgan', 'esrgan', 'codeformer'])
 
 devices.dtype = torch.float32 if cmd_opts.no_half else torch.float16
-devices.dtype_vae = torch.float32 if cmd_opts.no_half or cmd_opts.no_half_vae else torch.float16
+devices.dtype_vae = torch.float32
 
 device = devices.device
 weight_load_location = None if cmd_opts.lowram else "cpu"
@@ -994,8 +994,9 @@ def s3_download(s3uri, path):
         obj_key = 's3://{0}/{1}'.format(bucket, obj['Key'])
         if obj_key not in cache or cache[obj_key] != response['ETag']:
             filename = obj['Key'][obj['Key'].rfind('/') + 1 : ]
-
-            s3_client.download_file(bucket, obj['Key'], os.path.join(path, filename))
+            targetPath = os.path.join(path, filename)
+            print(f"download file from {bucket}/{obj['Key']} to {targetPath}")
+            s3_client.download_file(bucket, obj['Key'], targetPath)
             cache[obj_key] = response['ETag']
 
     json.dump(cache, open('cache', 'w'))

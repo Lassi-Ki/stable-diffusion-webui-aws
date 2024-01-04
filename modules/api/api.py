@@ -41,6 +41,11 @@ import uuid
 import json
 import requests
 
+import psutil
+import gc
+
+from modules.sync_models import get_local_folder
+
 def script_name_to_index(name, scripts):
     try:
         return [script.title().lower() for script in scripts].index(name.lower())
@@ -362,6 +367,7 @@ class Api:
 
     def text2imgapi(self, txt2imgreq: models.StableDiffusionTxt2ImgProcessingAPI):
         script_runner = scripts.scripts_txt2img
+
         if not script_runner.scripts:
             script_runner.initialize_scripts(False)
             ui.create_ui()
@@ -800,11 +806,12 @@ class Api:
         shared.state.server_command = "stop"
         return Response("Stopping.")
 
-    def post_invocations(self, b64images, quality):
+    def post_invocations(self, b64images, quality, user_id):
         if shared.generated_images_s3uri:
             bucket, key = shared.get_bucket_and_key(shared.generated_images_s3uri)
             if key.endswith('/'):
                 key = key[ : -1]
+            key += "/"+user_id
             images = []
             for b64image in b64images:
                 bytes_data = export_pil_to_bytes(decode_to_image(b64image), quality)
@@ -824,11 +831,23 @@ class Api:
         with self.invocations_lock:
             print('-------invocation------')
             print(req)
+            print("working..........")
+
+            # check memory and collect garbage
+            self.check_memory_and_collect_garbage()
 
             try:
+                if req.extra_payloads is not None:
+                    err = self.check_file_existence(req.extra_payloads)
+                    if err:
+                        return InvocationsErrorResponse(error=err)
+
                 if req.vae != None:
                     shared.opts.data['sd_vae'] = req.vae
+                    print(f"Setting vae to {shared.opts.data['sd_vae']}")
+                    print(f"shared.opts.sd_vae: {shared.opts.sd_vae}")
                     refresh_vae_list()
+                    #reload_vae_weights(vae_file=shared.opts.data['sd_vae'])
 
                 if req.model != None:
                     sd_model_checkpoint = shared.opts.sd_model_checkpoint
@@ -837,6 +856,8 @@ class Api:
                         reload_model_weights()
                     if sd_model_checkpoint == shared.opts.sd_model_checkpoint:
                         reload_vae_weights()
+
+                print(f"Now using vae is: {shared.opts.data['sd_vae']}")
 
                 quality = req.quality
 
@@ -857,22 +878,22 @@ class Api:
                         shared.s3_download(embeddings_s3uri, shared.cmd_opts.embeddings_dir)
                         sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
                     response = self.text2imgapi(req.txt2img_payload)
-                    response.images = self.post_invocations(response.images, quality)
+                    response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
                     return response
                 elif req.task == 'image-to-image':
                     if embeddings_s3uri != '':
                         shared.s3_download(embeddings_s3uri, shared.cmd_opts.embeddings_dir)
                         sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
                     response = self.img2imgapi(req.img2img_payload)
-                    response.images = self.post_invocations(response.images, quality)
+                    response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
                     return response
                 elif req.task == 'extras-single-image':
                     response = self.extras_single_image_api(req.extras_single_payload)
-                    response.image = self.post_invocations([response.image], quality)[0]
+                    response.image = self.post_invocations([response.image], quality, req.extra_payloads.user_id)[0]
                     return response
                 elif req.task == 'extras-batch-images':
                     response = self.extras_batch_images_api(req.extras_batch_payload)
-                    response.images = self.post_invocations(response.images, quality)
+                    response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
                     return response
                 elif req.task == 'interrogate':
                     response = self.interrogateapi(req.interrogate_payload)
@@ -883,6 +904,30 @@ class Api:
             except Exception as e:
                 traceback.print_exc()
                 return InvocationsErrorResponse(error = str(e))
+
+    def check_memory_and_collect_garbage(self, threshold=75):
+        memory_info = psutil.virtual_memory()
+        memory_usage = memory_info.percent
+
+        if memory_usage >= threshold:
+            print(f"Memory usage is at {memory_usage}%, initiating garbage collection...")
+            gc.collect()
+            print("Garbage collection completed.")
+
+
+    def check_file_existence(self, payload_checks: Optional[PayloadChecks]) -> Optional[str]:
+        if payload_checks is None:
+            return None
+        model_types = ["sd", "cn", "lora"]
+        for model_type in model_types:
+            model_list = getattr(payload_checks, f"{model_type}_models", None)
+            if model_list is None:
+                continue
+            for model in model_list:
+                model_path = os.path.join(get_local_folder(model_type), model)
+                if not os.path.exists(model_path):
+                    return f"{model_type} model file for {model} cannot be found."
+        return None
 
     def ping(self):
         return {'status': 'Healthy'}

@@ -83,11 +83,15 @@ def refresh_vae_list():
         name = get_filename(filepath)
         vae_dict[name] = filepath
 
+    print(f"Found {len(vae_dict)} VAE checkpoints")
+
 
 def find_vae_near_checkpoint(checkpoint_file):
     checkpoint_path = os.path.basename(checkpoint_file).rsplit('.', 1)[0]
+    print(f"Looking for VAE named |{checkpoint_path}| near the checkpoint")
     for vae_file in vae_dict.values():
         if os.path.basename(vae_file).startswith(checkpoint_path):
+            print(f"Vae_file: {vae_file}")
             return vae_file
 
     return None
@@ -95,9 +99,11 @@ def find_vae_near_checkpoint(checkpoint_file):
 
 def resolve_vae(checkpoint_file):
     if shared.cmd_opts.vae_path is not None:
+        print(f"shared.cmd_opts.vae_path is not None: {shared.cmd_opts.vae_path}")
         return shared.cmd_opts.vae_path, 'from commandline argument'
 
     is_automatic = shared.opts.sd_vae in {"Automatic", "auto"}  # "auto" for people with old config
+    print(f"is_automatic: {is_automatic}")
 
     vae_near_checkpoint = find_vae_near_checkpoint(checkpoint_file)
     if vae_near_checkpoint is not None and (shared.opts.sd_vae_as_default or is_automatic):
@@ -128,7 +134,13 @@ def load_vae(model, vae_file=None, vae_source="from unknown source"):
 
     cache_enabled = shared.opts.sd_vae_checkpoint_cache > 0
 
+    if checkpoints_loaded is None:
+        print("checkpoints_loaded is none")
+    else:
+        print(f"checkpoints_loaded: {checkpoints_loaded.items()}")
+
     if vae_file:
+        print(f"Vae_source: {vae_source}")  # Found near the checkpoint
         if cache_enabled and vae_file in checkpoints_loaded:
             # use vae checkpoint cache
             print(f"Loading VAE weights {vae_source}: cached {get_filename(vae_file)}")
@@ -161,6 +173,7 @@ def load_vae(model, vae_file=None, vae_source="from unknown source"):
         restore_base_vae(model)
 
     loaded_vae_file = vae_file
+    print(f"loaded_vae_file: {loaded_vae_file}")
 
 
 # don't call this from outside
@@ -185,6 +198,7 @@ def reload_vae_weights(sd_model=None, vae_file=unspecified):
 
     checkpoint_info = sd_model.sd_checkpoint_info
     checkpoint_file = checkpoint_info.filename
+    print(f"Checkpoint file: {checkpoint_file}")
 
     if vae_file == unspecified:
         vae_file, vae_source = resolve_vae(checkpoint_file)
