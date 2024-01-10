@@ -254,10 +254,24 @@ def webui():
         initialize.initialize_rest(reload_script_modules=True)
 
 
+if cmd_opts.train:
+    def train():
+        initialize()
+
+        train_args = json.loads(cmd_opts.train_args)
+
+        sd_models_s3uri = cmd_opts.sd_models_s3uri
+        db_models_s3uri = cmd_opts.db_models_s3uri
+        lora_models_s3uri = cmd_opts.lora_models_s3uri
+
+        train_dreambooth("", train_args, sd_models_s3uri, db_models_s3uri, lora_models_s3uri, "")
+
 if __name__ == "__main__":
     from modules.shared_cmd_options import cmd_opts
 
-    if cmd_opts.nowebui:
+    if cmd_opts.train:
+        train()
+    elif cmd_opts.nowebui:
         api_only()
     else:
         webui()

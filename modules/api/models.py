@@ -334,3 +334,31 @@ class InvocationsErrorResponse(BaseModel):
 
 class PingResponse(BaseModel):
     status: str
+
+
+class PayloadChecks(BaseModel):
+    sd_models: Optional[List[str]]
+    cn_models: Optional[List[str]]
+    lora_models: Optional[List[str]]
+    user_id: str = Field(..., title="User ID", description="The user ID (required)")
+
+
+class InvocationsRequest(BaseModel):
+    task: str
+    id: Optional[str]
+    model: Optional[str]
+    vae: Optional[str]
+    quality: Optional[int]
+    options: Optional[str]
+    txt2img_payload: Optional[StableDiffusionTxt2ImgProcessingAPI]
+    img2img_payload: Optional[StableDiffusionImg2ImgProcessingAPI]
+    extras_single_payload: Optional[ExtrasSingleImageRequest]
+    extras_batch_payload: Optional[ExtrasBatchImagesRequest]
+    interrogate_payload: Optional[InterrogateRequest]
+    extra_payloads: Optional[PayloadChecks]
+
+class InvocationsErrorResponse(BaseModel):
+    error: str = Field(title="Invocation error", description="Error response from invocation.")
+
+class PingResponse(BaseModel):
+    status: str
