@@ -29,7 +29,7 @@ from modules.sd_models import unload_model_weights, reload_model_weights, checkp
 from modules.sd_models_config import find_checkpoint_config_near_filename
 from modules.realesrgan_model import get_realesrgan_models
 from modules import devices
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 import piexif
 import piexif.helper
 from contextlib import closing
@@ -43,7 +43,6 @@ import requests
 import psutil
 import gc
 from modules.sync_models import get_local_folder
-from typing import Optional
 from modules.api.models import *
 
 def script_name_to_index(name, scripts):
@@ -982,7 +981,7 @@ class Api:
             print("Garbage collection completed.")
 
 
-    def check_file_existence(self, payload_checks: Optional[PayloadChecks]) -> Optional[str]:
+    def check_file_existence(self, payload_checks: PayloadChecks):
         if payload_checks is None:
             return None
         model_types = ["sd", "cn", "lora"]
