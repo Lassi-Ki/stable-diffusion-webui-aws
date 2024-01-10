@@ -24,8 +24,6 @@ from modules.shared_cmd_options import cmd_opts
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd-webui-controlnet'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_dreambooth_extension'))
 
-if cmd_opts.train:
-    from extensions.sd_dreambooth_extension.scripts.train import train_dreambooth
 
 def create_api(app):
     from modules.api.api import Api
@@ -255,23 +253,12 @@ def webui():
 
 
 if cmd_opts.train:
-    def train():
-        initialize()
-
-        train_args = json.loads(cmd_opts.train_args)
-
-        sd_models_s3uri = cmd_opts.sd_models_s3uri
-        db_models_s3uri = cmd_opts.db_models_s3uri
-        lora_models_s3uri = cmd_opts.lora_models_s3uri
-
-        train_dreambooth("", train_args, sd_models_s3uri, db_models_s3uri, lora_models_s3uri, "")
+    print("Training mode is not supported.")
 
 if __name__ == "__main__":
     from modules.shared_cmd_options import cmd_opts
 
-    if cmd_opts.train:
-        train()
-    elif cmd_opts.nowebui:
+    if cmd_opts.nowebui:
         api_only()
     else:
         webui()

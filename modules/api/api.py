@@ -40,6 +40,11 @@ from modules.sd_vae import reload_vae_weights, refresh_vae_list
 import uuid
 import json
 import requests
+import psutil
+import gc
+from modules.sync_models import get_local_folder
+from typing import Optional
+from modules.api.models import *
 
 def script_name_to_index(name, scripts):
     try:
@@ -902,7 +907,7 @@ class Api:
                 if req.extra_payloads is not None:
                     err = self.check_file_existence(req.extra_payloads)
                     if err:
-                        return InvocationsErrorResponse(error=err)
+                        return models.InvocationsErrorResponse(error=err)
 
                 if req.vae != None:
                     shared.opts.data['sd_vae'] = req.vae
