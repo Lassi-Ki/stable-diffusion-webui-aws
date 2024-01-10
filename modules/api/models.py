@@ -313,29 +313,6 @@ class ScriptInfo(BaseModel):
     args: List[ScriptArg] = Field(title="Arguments", description="List of script's arguments")
 
 
-class InvocationsRequest(BaseModel):
-    task: str
-    id: Optional[str]
-    model: Optional[str]
-    vae: Optional[str]
-    quality: Optional[int]
-    options: Optional[str]
-    txt2img_payload: Optional[StableDiffusionTxt2ImgProcessingAPI]
-    img2img_payload: Optional[StableDiffusionImg2ImgProcessingAPI]
-    extras_single_payload: Optional[ExtrasSingleImageRequest]
-    extras_batch_payload: Optional[ExtrasBatchImagesRequest]
-    interrogate_payload: Optional[InterrogateRequest]
-    extra_payload: Optional[dict]
-
-
-class InvocationsErrorResponse(BaseModel):
-    error: str = Field(title="Invocation error", description="Error response from invocation.")
-
-
-class PingResponse(BaseModel):
-    status: str
-
-
 class PayloadChecks(BaseModel):
     sd_models: Optional[List[str]]
     cn_models: Optional[List[str]]
@@ -359,6 +336,7 @@ class InvocationsRequest(BaseModel):
 
 class InvocationsErrorResponse(BaseModel):
     error: str = Field(title="Invocation error", description="Error response from invocation.")
+
 
 class PingResponse(BaseModel):
     status: str
