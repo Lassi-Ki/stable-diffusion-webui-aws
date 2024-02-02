@@ -322,17 +322,21 @@ class PayloadChecks(BaseModel):
 
 class InvocationsRequest(BaseModel):
     task: str
-    id: Optional[str]
     model: Optional[str]
-    vae: Optional[str]
-    quality: Optional[int]
-    options: Optional[str]
-    txt2img_payload: Optional[StableDiffusionTxt2ImgProcessingAPI]
-    img2img_payload: Optional[StableDiffusionImg2ImgProcessingAPI]
-    extras_single_payload: Optional[ExtrasSingleImageRequest]
-    extras_batch_payload: Optional[ExtrasBatchImagesRequest]
-    interrogate_payload: Optional[InterrogateRequest]
-    extra_payloads: Optional[PayloadChecks]
+    id: Optional[str]
+    s3Url: Optional[str]
+    # task: str
+    # id: Optional[str]
+    # model: Optional[str]
+    # vae: Optional[str]
+    # quality: Optional[int]
+    # options: Optional[str]
+    # txt2img_payload: Optional[StableDiffusionTxt2ImgProcessingAPI]
+    # img2img_payload: Optional[StableDiffusionImg2ImgProcessingAPI]
+    # extras_single_payload: Optional[ExtrasSingleImageRequest]
+    # extras_batch_payload: Optional[ExtrasBatchImagesRequest]
+    # interrogate_payload: Optional[InterrogateRequest]
+    # extra_payloads: Optional[PayloadChecks]
 
 class InvocationsErrorResponse(BaseModel):
     error: str = Field(title="Invocation error", description="Error response from invocation.")

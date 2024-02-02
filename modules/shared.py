@@ -150,11 +150,16 @@ s3_client = boto3.client('s3', endpoint_url=endpointUrl, region_name=region_name
 s3_resource= boto3.resource('s3')
 generated_images_s3uri = os.environ.get('generated_images_s3uri', None)
 
+
 def get_bucket_and_key(s3uri):
     pos = s3uri.find('/', 5)
     bucket = s3uri[5 : pos]
     key = s3uri[pos + 1 : ]
     return bucket, key
+
+
+def download_dataset_from_s3(s3uri, path):
+    pass
 
 def s3_download(s3uri, path):
     global cache

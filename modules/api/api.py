@@ -45,6 +45,9 @@ import gc
 from modules.sync_models import get_local_folder
 from modules.api.models import *
 
+from extensions.EasyPhoto.api_test.post_train import post_train
+
+
 def script_name_to_index(name, scripts):
     try:
         return [script.title().lower() for script in scripts].index(name.lower())
@@ -66,6 +69,7 @@ def setUpscalers(req: dict):
     reqDict['extras_upscaler_2'] = reqDict.pop('upscaler_2', None)
     return reqDict
 
+
 def decode_to_image(encoding):
     image = None
     try:
@@ -88,6 +92,7 @@ def decode_to_image(encoding):
         return image
     except Exception as err:
         raise HTTPException(status_code=500, detail="Invalid encoded image")
+
 
 def verify_url(url):
     """Returns True if the url refers to a global resource."""
@@ -107,6 +112,7 @@ def verify_url(url):
 
     return True
 
+
 def decode_to_image(encoding):
     image = None
     try:
@@ -129,6 +135,7 @@ def decode_to_image(encoding):
         return image
     except Exception as err:
         raise HTTPException(status_code=500, detail="Invalid encoded image")
+
 
 def decode_base64_to_image(encoding):
     if encoding.startswith("http://") or encoding.startswith("https://"):
@@ -186,6 +193,7 @@ def encode_pil_to_base64(image):
 
     return base64.b64encode(bytes_data)
 
+
 def export_pil_to_bytes(image, quality):
     with io.BytesIO() as output_bytes:
 
@@ -214,6 +222,7 @@ def export_pil_to_bytes(image, quality):
         bytes_data = output_bytes.getvalue()
 
     return bytes_data
+
 
 def api_middleware(app: FastAPI):
     rich_available = False
@@ -751,7 +760,6 @@ class Api:
         finally:
             shared.state.end()
 
-
     def create_hypernetwork(self, args: dict):
         try:
             shared.state.begin(job="create_hypernetwork")
@@ -903,18 +911,6 @@ class Api:
             self.check_memory_and_collect_garbage()
 
             try:
-                if req.extra_payloads is not None:
-                    err = self.check_file_existence(req.extra_payloads)
-                    if err:
-                        return models.InvocationsErrorResponse(error=err)
-
-                if req.vae != None:
-                    shared.opts.data['sd_vae'] = req.vae
-                    print(f"Setting vae to {shared.opts.data['sd_vae']}")
-                    print(f"shared.opts.sd_vae: {shared.opts.sd_vae}")
-                    refresh_vae_list()
-                    #reload_vae_weights(vae_file=shared.opts.data['sd_vae'])
-
                 if req.model != None:
                     sd_model_checkpoint = shared.opts.sd_model_checkpoint
                     shared.opts.sd_model_checkpoint = req.model
@@ -923,49 +919,25 @@ class Api:
                     if sd_model_checkpoint == shared.opts.sd_model_checkpoint:
                         reload_vae_weights()
 
-                print(f"Now using vae is: {shared.opts.data['sd_vae']}")
+                if req.s3Url !='':
+                    shared.download_dataset_from_s3(req.s3Url, f'./datasets/{req.id}')
 
-                quality = req.quality
+                img_list = [
+                    "http://pai-vision-data-inner.oss-cn-zhangjiakou.aliyuncs.com/data/easyphoto/train_data/test_face_1/t1.jpg",
+                    "http://pai-vision-data-inner.oss-cn-zhangjiakou.aliyuncs.com/data/easyphoto/train_data/test_face_1/t2.jpg",
+                    "http://pai-vision-data-inner.oss-cn-zhangjiakou.aliyuncs.com/data/easyphoto/train_data/test_face_1/t3.jpg",
+                    "http://pai-vision-data-inner.oss-cn-zhangjiakou.aliyuncs.com/data/easyphoto/train_data/test_face_1/t4.jpg",
+                ]
+                encoded_images = []
+                for idx, img_path in enumerate(img_list):
+                    encoded_image = requests.get(img_path)
+                    encoded_image = base64.b64encode(BytesIO(encoded_image.content).read()).decode("utf-8")
+                    encoded_images.append(encoded_image)
 
-                embeddings_s3uri = shared.cmd_opts.embeddings_s3uri
-                hypernetwork_s3uri = shared.cmd_opts.hypernetwork_s3uri
-
-                if hypernetwork_s3uri !='':
-                    shared.s3_download(hypernetwork_s3uri, shared.cmd_opts.hypernetwork_dir)
-                    shared.reload_hypernetworks()
-
-                if req.options != None:
-                    options = json.loads(req.options)
-                    for key in options:
-                        shared.opts.data[key] = options[key]
-
-                if req.task == 'text-to-image':
-                    if embeddings_s3uri != '':
-                        shared.s3_download(embeddings_s3uri, shared.cmd_opts.embeddings_dir)
-                        sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
-                    response = self.text2imgapi(req.txt2img_payload)
-                    response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
-                    return response
-                elif req.task == 'image-to-image':
-                    if embeddings_s3uri != '':
-                        shared.s3_download(embeddings_s3uri, shared.cmd_opts.embeddings_dir)
-                        sd_hijack.model_hijack.embedding_db.load_textual_inversion_embeddings()
-                    response = self.img2imgapi(req.img2img_payload)
-                    response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
-                    return response
-                elif req.task == 'extras-single-image':
-                    response = self.extras_single_image_api(req.extras_single_payload)
-                    response.image = self.post_invocations([response.image], quality, req.extra_payloads.user_id)[0]
-                    return response
-                elif req.task == 'extras-batch-images':
-                    response = self.extras_batch_images_api(req.extras_batch_payload)
-                    response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
-                    return response
-                elif req.task == 'interrogate':
-                    response = self.interrogateapi(req.interrogate_payload)
-                    return response
-                else:
-                    return models.InvocationsErrorResponse(error = f'Invalid task - {req.task}')
+                outputs = post_train(encoded_images)
+                outputs = json.loads(outputs)
+                # response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
+                return outputs
 
             except Exception as e:
                 traceback.print_exc()
