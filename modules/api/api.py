@@ -3,6 +3,8 @@ import io
 import os
 import time
 import datetime
+
+import numpy as np
 import uvicorn
 import ipaddress
 import requests
@@ -15,6 +17,8 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from secrets import compare_digest
+
+from tqdm import tqdm
 
 import modules.shared as shared
 from modules import sd_samplers, deepbooru, sd_hijack, images, scripts, ui, postprocessing, errors, restart, shared_items
@@ -45,7 +49,17 @@ import gc
 from modules.sync_models import get_local_folder
 from modules.api.models import *
 
-from extensions.EasyPhoto.api_test.post_train import post_train
+from extensions.sd_EasyPhoto.api_test.post_train import post_train
+from extensions.sd_EasyPhoto.api_test.post_infer import post_infer
+from glob import glob
+import cv2
+
+
+def decode_image_from_base64jpeg(base64_image):
+    image_bytes = base64.b64decode(base64_image)
+    np_arr = np.frombuffer(image_bytes, np.uint8)
+    image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+    return image
 
 
 def script_name_to_index(name, scripts):
@@ -919,23 +933,64 @@ class Api:
                     if sd_model_checkpoint == shared.opts.sd_model_checkpoint:
                         reload_vae_weights()
 
+                # Train
                 if req.s3Url !='':
                     shared.download_dataset_from_s3(req.s3Url, f'./datasets/{req.id}')
 
-                img_list = [
-                    "http://pai-vision-data-inner.oss-cn-zhangjiakou.aliyuncs.com/data/easyphoto/train_data/test_face_1/t1.jpg",
-                    "http://pai-vision-data-inner.oss-cn-zhangjiakou.aliyuncs.com/data/easyphoto/train_data/test_face_1/t2.jpg",
-                    "http://pai-vision-data-inner.oss-cn-zhangjiakou.aliyuncs.com/data/easyphoto/train_data/test_face_1/t3.jpg",
-                    "http://pai-vision-data-inner.oss-cn-zhangjiakou.aliyuncs.com/data/easyphoto/train_data/test_face_1/t4.jpg",
-                ]
+                img_list = f'./datasets/{req.id}'
                 encoded_images = []
                 for idx, img_path in enumerate(img_list):
-                    encoded_image = requests.get(img_path)
-                    encoded_image = base64.b64encode(BytesIO(encoded_image.content).read()).decode("utf-8")
-                    encoded_images.append(encoded_image)
-
+                    with open(img_path, "rb") as f:
+                        encoded_image = base64.b64encode(f.read()).decode("utf-8")
+                        encoded_images.append(encoded_image)
+                time_start = time.time()
                 outputs = post_train(encoded_images)
+                time_end = time.time()
+                time_sum = (time_end - time_start) // 60
+                print("# --------------------------------------------------------- #")
+                print(f"#   Total expenditure：{time_sum} minutes ")
+                print("# --------------------------------------------------------- #")
                 outputs = json.loads(outputs)
+                print(outputs["message"])
+
+                time.sleep(10)
+
+                # Inference
+                image_formats = ["*.jpg", "*.jpeg", "*.png", "*.webp"]
+                img_list = []
+                template_dir = './extensions/sd_EasyPhoto/models/infer_templates/'
+                for image_format in image_formats:
+                    img_list.extend(glob(os.path.join(template_dir, image_format)))
+                if len(img_list) == 0:
+                    print(f" Input template dir {template_dir} contains no images")
+                else:
+                    print(f" Total {len(img_list)} templates to process for {req.id} ID")
+                print(img_list)
+                now_date = datetime.datetime.now()
+                time_start = time.time()
+                output_path = './outputs_easyphoto/'
+
+                for img_path in tqdm(img_list):
+                    print(f" Call generate for ID ({req.id}) and Template ({img_path})")
+                    with open(img_path, "rb") as f:
+                        encoded_image = base64.b64encode(f.read()).decode("utf-8")
+                        outputs = post_infer(encoded_image, user_id=req.id)
+                        outputs = json.loads(outputs)
+                        if len(outputs["outputs"]):
+                            image = decode_image_from_base64jpeg(outputs["outputs"][0])
+                            toutput_path = os.path.join(os.path.join(output_path),
+                                                        f"{req.id}_" + os.path.basename(img_path))
+                            print(output_path)
+                            cv2.imwrite(toutput_path, image)
+                        else:
+                            print("Error!", outputs["message"])
+                        print(outputs["message"])
+                time_end = time.time()
+                time_sum = time_end - time_start
+                print("# --------------------------------------------------------- #")
+                print(f"#   Total expenditure: {time_sum}s")
+                print("# --------------------------------------------------------- #")
+
                 # response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
                 return outputs
 

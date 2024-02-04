@@ -472,7 +472,7 @@ def easyphoto_infer_forward(
         ipa_image_path = ipa_only_image_path
         user_ids = ["ipa_control_only", "none", "none", "none", "none"]
 
-    # update donot delete but use "none" as placeholder and will pass this face inpaint later
+    # update do not delete but use "none" as placeholder and will pass this face inpaint later
     passed_userid_list = []
     last_user_id_none_num = 0
     valid_user_id_num = 0

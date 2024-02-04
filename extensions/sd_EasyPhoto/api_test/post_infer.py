@@ -20,19 +20,19 @@ def decode_image_from_base64jpeg(base64_image):
     return image
 
 
-def post(encoded_image, user_id=None, url="http://0.0.0.0:7860"):
+def post_infer(encoded_image, user_id=None, url="http://0.0.0.0:7860"):
     if user_id is None:
         user_id = "test"
     datas = json.dumps(
         {
             "user_ids": [user_id],
-            "sd_model_checkpoint": "Chilloutmix-Ni-pruned-fp16-fix.safetensors",
+            "sd_model_checkpoint": "sd_xl_base_1.0.safetensors",
             "init_image": encoded_image,
             "first_diffusion_steps": 50,
             "first_denoising_strength": 0.45,
             "second_diffusion_steps": 20,
             "second_denoising_strength": 0.35,
-            "seed": 12345,
+            "seed": -1,
             "crop_face_preprocess": True,
             "before_face_fusion_ratio": 0.5,
             "after_face_fusion_ratio": 0.5,
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         encoded_image = base64.b64encode(BytesIO(encoded_image.content).read()).decode("utf-8")
 
         for user_id in tqdm(user_ids):
-            outputs = post(encoded_image, user_id)
+            outputs = post_infer(encoded_image, user_id)
             outputs = json.loads(outputs)
             image = decode_image_from_base64jpeg(outputs["outputs"][0])
             toutput_path = os.path.join(os.path.join(output_path), f"{user_id}_tmp.jpg")
@@ -122,7 +122,7 @@ if __name__ == "__main__":
 
                 with open(img_path, "rb") as f:
                     encoded_image = base64.b64encode(f.read()).decode("utf-8")
-                    outputs = post(encoded_image, user_id=user_id)
+                    outputs = post_infer(encoded_image, user_id=user_id)
                     outputs = json.loads(outputs)
 
                     if len(outputs["outputs"]):

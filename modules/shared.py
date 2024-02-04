@@ -159,7 +159,19 @@ def get_bucket_and_key(s3uri):
 
 
 def download_dataset_from_s3(s3uri, path):
-    pass
+    pos = s3uri.find('/', 5)
+    bucket = s3uri[5: pos]
+    key = s3uri[pos + 1:]
+
+    s3 = boto3.client('s3')
+    response = s3.list_objects_v2(Bucket=bucket, Prefix=key)
+    for obj in response.get('Contents', []):
+        key = obj['Key']
+        if key.endswith('.jpg') or key.endswith('.png') or key.endswith('.jpeg'):
+            local_path = os.path.join(path, os.path.basename(key))
+            s3.download_file(bucket, key, local_path)
+            print(f'Downloaded {key} to {local_path}')
+
 
 def s3_download(s3uri, path):
     global cache
