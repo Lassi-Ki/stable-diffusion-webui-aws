@@ -159,6 +159,10 @@ def get_bucket_and_key(s3uri):
 
 
 def download_dataset_from_s3(s3uri, path):
+    if path is not None:
+        # 如果文件夹不存在就创建它
+        if not os.path.exists(path):
+            os.makedirs(path)
     pos = s3uri.find('/', 5)
     bucket = s3uri[5: pos]
     key = s3uri[pos + 1:]
