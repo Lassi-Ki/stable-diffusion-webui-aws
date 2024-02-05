@@ -163,14 +163,29 @@ def download_dataset_from_s3(s3uri, path):
     bucket = s3uri[5: pos]
     key = s3uri[pos + 1:]
 
-    s3 = boto3.client('s3')
-    response = s3.list_objects_v2(Bucket=bucket, Prefix=key)
-    for obj in response.get('Contents', []):
-        key = obj['Key']
-        if key.endswith('.jpg') or key.endswith('.png') or key.endswith('.jpeg'):
-            local_path = os.path.join(path, os.path.basename(key))
-            s3.download_file(bucket, key, local_path)
-            print(f'Downloaded {key} to {local_path}')
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(bucket)
+    for obj in bucket.objects.filter(Prefix=key):
+        target = obj.key if path is None else os.path.join(path, os.path.relpath(obj.key, key))
+        if not os.path.exists(os.path.dirname(target)):
+            os.makedirs(os.path.dirname(target))
+        if obj.key[-1] == '/':
+            continue
+        bucket.download_file(obj.key, target)
+    # response = s3.list_objects_v2(Bucket=bucket, Prefix=key)
+    # for obj in response.get('Contents', []):
+    #     key = obj['Key']
+    #     if key.endswith('.jpg') or key.endswith('.png') or key.endswith('.jpeg'):
+    #         local_path = os.path.join(path, os.path.basename(key))
+    #         s3.download_file(bucket, key, local_path)
+    #         print(f'Downloaded {key} to {local_path}')
+    #
+    # s3 = boto3.resource('s3')
+    # bucket = s3.Bucket('sagemaker-us-west-2-011299426194')
+    # for obj in bucket.objects.filter(Prefix=s3uri):
+    #     if not os.path.exists(os.path.dirname(obj.key)):
+    #         os.makedirs(os.path.dirname(obj.key))
+    #     bucket.download_file(obj.key, obj.key)
 
 
 def s3_download(s3uri, path):
