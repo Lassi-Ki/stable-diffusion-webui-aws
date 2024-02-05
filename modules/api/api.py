@@ -934,12 +934,14 @@ class Api:
                         reload_vae_weights()
 
                 # Train
+                user_path = f'./datasets/{req.id}'
                 if req.s3Url !='':
-                    shared.download_dataset_from_s3(req.s3Url, f'./datasets/{req.id}')
+                    shared.download_dataset_from_s3(req.s3Url, user_path)
 
-                img_list = f'./datasets/{req.id}'
+                img_list = os.listdir(user_path)
                 encoded_images = []
                 for idx, img_path in enumerate(img_list):
+                    img_path = os.path.join(user_path, img_path)
                     with open(img_path, "rb") as f:
                         encoded_image = base64.b64encode(f.read()).decode("utf-8")
                         encoded_images.append(encoded_image)
