@@ -22,9 +22,9 @@ def easyphoto_train_forward_api(_: gr.Blocks, app: FastAPI):
         id_task = datas.get("id_task", "")
         user_id = datas.get("user_id", "tmp")
         train_mode_choose = datas.get("train_mode_choose", "Train Human Lora")
-        resolution = datas.get("resolution", 512)
+        resolution = datas.get("resolution", 1024)
         val_and_checkpointing_steps = datas.get("val_and_checkpointing_steps", 100)
-        max_train_steps = datas.get("max_train_steps", 800)
+        max_train_steps = datas.get("max_train_steps", 600)
         steps_per_photos = datas.get("steps_per_photos", 200)
         train_batch_size = datas.get("train_batch_size", 1)
 

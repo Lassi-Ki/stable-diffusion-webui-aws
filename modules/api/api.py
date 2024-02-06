@@ -987,22 +987,22 @@ class Api:
                     with open(img_path, "rb") as f:
                         encoded_image = base64.b64encode(f.read()).decode("utf-8")
                         selected_template_images.append(encoded_image)
-                        # payload_infer = {
-                        #     "user_ids": [req.id],
-                        #     "sd_model_checkpoint": req.model,
-                        #     "selected_template_images": [encoded_image],
-                        # }
-                        # outputs = self.easyphoto_infer(payload_infer)
-                        # outputs = json.loads(outputs)
-                        # if len(outputs["outputs"]):
-                        #     image = decode_image_from_base64jpeg(outputs["outputs"][0])
-                        #     toutput_path = os.path.join(os.path.join(output_path),
-                        #                                 f"{req.id}_" + os.path.basename(img_path))
-                        #     print(output_path)
-                        #     cv2.imwrite(toutput_path, image)
-                        # else:
-                        #     print("Error!", outputs["message"])
-                        # print(outputs["message"])
+
+                payload_infer = {
+                    "user_ids": [req.id],
+                    "sd_model_checkpoint": req.model,
+                    "selected_template_images": [encoded_image],
+                }
+                outputs = self.easyphoto_infer(payload_infer)
+                if len(outputs["outputs"]):
+                    image = decode_image_from_base64jpeg(outputs["outputs"][0])
+                    toutput_path = os.path.join(os.path.join(output_path),
+                                                f"{req.id}_" + os.path.basename(img_path))
+                    print(output_path)
+                    cv2.imwrite(toutput_path, image)
+                else:
+                    print("Error!", outputs["message"])
+                print(outputs["message"])
                 time_end = time.time()
                 time_sum = time_end - time_start
                 print("# --------------------------------------------------------- #")
@@ -1051,24 +1051,24 @@ class Api:
     def easyphoto_train(self, datas: dict):
         sd_model_checkpoint = datas.get("sd_model_checkpoint", "sd_xl_base_1.0.safetensors")
         id_task = datas.get("id_task", "")
-        user_id = datas.get("user_id", "tmp")
+        user_id = datas.get("user_id", "test")
         train_mode_choose = datas.get("train_mode_choose", "Train Human Lora")
-        resolution = datas.get("resolution", 512)
+        resolution = datas.get("resolution", 1024)
         val_and_checkpointing_steps = datas.get("val_and_checkpointing_steps", 100)
-        max_train_steps = datas.get("max_train_steps", 800)
+        max_train_steps = datas.get("max_train_steps", 600)
         steps_per_photos = datas.get("steps_per_photos", 200)
         train_batch_size = datas.get("train_batch_size", 1)
         gradient_accumulation_steps = datas.get("gradient_accumulation_steps", 4)
         dataloader_num_workers = datas.get("dataloader_num_workers", 16)
         learning_rate = datas.get("learning_rate", 1e-4)
-        rank = datas.get("rank", 128)
-        network_alpha = datas.get("network_alpha", 64)
+        rank = datas.get("rank", 32)
+        network_alpha = datas.get("network_alpha", 16)
         instance_images = datas.get("instance_images", [])
         validation = datas.get("validation", False)
         enable_rl = datas.get("enable_rl", False)
         max_rl_time = datas.get("max_rl_time", 1)
         timestep_fraction = datas.get("timestep_fraction", 1)
-        skin_retouching_bool = datas.get("skin_retouching_bool", False)
+        skin_retouching_bool = datas.get("skin_retouching_bool", True)
         training_prefix_prompt = datas.get("training_prefix_prompt", "")
         crop_ratio = datas.get("crop_ratio", 3)
         args = datas.get("args", [])
