@@ -33,7 +33,7 @@ from modules.script_callbacks import (AfterCFGCallbackParams,
                                       cfg_denoiser_callback)
 from modules.shared import opts, state
 from PIL import Image, ImageFilter, ImageOps, PngImagePlugin
-from scripts.easyphoto_config import easyphoto_models_path
+from extensions.sd_EasyPhoto.scripts.easyphoto_config import easyphoto_models_path
 from tqdm import tqdm
 
 try:

@@ -58,7 +58,7 @@ def easyphoto_train_forward(
     *args,
 ):
     global check_hash
-    print(f'lora training: {user_id} start...')
+    print(f'lora training v2: {user_id} start...')
 
     if user_id == "" or user_id is None:
         ep_logger.error("User id cannot be set to empty.")

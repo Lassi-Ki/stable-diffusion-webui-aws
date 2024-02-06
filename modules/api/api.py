@@ -962,7 +962,6 @@ class Api:
                 print("# --------------------------------------------------------- #")
                 print(f"#   Total expenditure：{time_sum} minutes ")
                 print("# --------------------------------------------------------- #")
-                outputs = json.loads(outputs)
                 print(outputs["message"])
 
                 time.sleep(10)

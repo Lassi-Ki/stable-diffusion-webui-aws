@@ -13,7 +13,7 @@ from modules import extra_networks, shared, script_callbacks
 from modules.processing import StableDiffusionProcessing
 import modules.scripts as scripts
 from PIL import Image
-from scripts.easyphoto_config import extensions_builtin_dir, extensions_dir
+from extensions.sd_EasyPhoto.scripts.easyphoto_config import extensions_builtin_dir, extensions_dir
 
 
 # TODO: refactor the plugin dependency.

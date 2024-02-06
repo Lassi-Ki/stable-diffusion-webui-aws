@@ -18,8 +18,8 @@ from modelscope.utils.logger import get_logger as ms_get_logger
 from tqdm import tqdm
 
 from modules import shared
-import scripts.easyphoto_infer
-from scripts.easyphoto_config import data_path, easyphoto_models_path, models_path, tryon_gallery_dir, DEFAULT_SLIDERS
+import extensions.sd_EasyPhoto.scripts.easyphoto_infer
+from extensions.sd_EasyPhoto.scripts.easyphoto_config import data_path, easyphoto_models_path, models_path, tryon_gallery_dir, DEFAULT_SLIDERS
 
 # Ms logger set
 ms_logger = ms_get_logger()
