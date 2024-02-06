@@ -5,11 +5,9 @@ import sys
 import numpy as np
 from glob import glob
 from shutil import copyfile
-
 from modules.sd_models_config import config_default, config_sdxl
 from PIL import Image, ImageOps
-
-from scripts.easyphoto_config import (
+from extensions.sd_EasyPhoto.scripts.easyphoto_config import (
     cache_log_file_path,
     easyphoto_models_path,
     models_path,
@@ -18,9 +16,14 @@ from scripts.easyphoto_config import (
     validation_prompt,
     validation_prompt_scene,
 )
-from scripts.easyphoto_utils import check_files_exists_and_download, check_id_valid, check_scene_valid, ep_logger, unload_models
-from scripts.sdwebui import get_checkpoint_type, unload_sd
-from scripts.train_kohya.utils.lora_utils import convert_lora_to_safetensors
+from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
+     check_files_exists_and_download,
+     check_id_valid,
+     check_scene_valid,
+     ep_logger,
+     unload_models)
+from extensions.sd_EasyPhoto.scripts.sdwebui import get_checkpoint_type, unload_sd
+from extensions.sd_EasyPhoto.scripts.train_kohya.utils.lora_utils import convert_lora_to_safetensors
 
 python_executable_path = sys.executable
 # base, portrait, sdxl
@@ -55,6 +58,7 @@ def easyphoto_train_forward(
     *args,
 ):
     global check_hash
+    print(f'lora training: {user_id} start...')
 
     if user_id == "" or user_id is None:
         ep_logger.error("User id cannot be set to empty.")
@@ -69,15 +73,11 @@ def easyphoto_train_forward(
         for _id in _ids:
             if check_id_valid(_id, user_id_outpath_samples, models_path):
                 ids.append(_id)
-    _scenes = os.listdir(os.path.join(models_path, "Lora"))
-    for _scene in _scenes:
-        if check_scene_valid(_scene, models_path):
-            ids.append(os.path.splitext(_scene)[0])
     ids = sorted(ids)
-
     if user_id in ids:
         ep_logger.error("User id non-repeatability.")
         return "User id non-repeatability."
+    print(f'Now ids: {ids}')
     
     if len(instance_images) == 0:
         ep_logger.error("Please upload training photos.")

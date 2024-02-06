@@ -16,7 +16,7 @@ from modules.images import save_image
 from modules.shared import opts
 from PIL import Image, ImageChops, ImageOps
 
-from scripts.easyphoto_config import (
+from extensions.sd_EasyPhoto.scripts.easyphoto_config import (
     DEFAULT_NEGATIVE,
     DEFAULT_NEGATIVE_AD,
     DEFAULT_NEGATIVE_T2I,
@@ -32,7 +32,7 @@ from scripts.easyphoto_config import (
     user_id_outpath_samples,
     validation_prompt,
 )
-from scripts.easyphoto_utils import (
+from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
     Face_Skin,
     FIRE_forward,
     PSGAN_Inference,
@@ -55,7 +55,7 @@ from scripts.easyphoto_utils import (
     unload_models,
     seed_everything,
 )
-from scripts.sdwebui import (
+from extensions.sd_EasyPhoto.scripts.sdwebui import (
     get_checkpoint_type,
     get_lora_type,
     i2i_inpaint_call,

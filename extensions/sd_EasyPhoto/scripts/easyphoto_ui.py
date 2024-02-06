@@ -6,7 +6,7 @@ import modules.generation_parameters_copypaste as parameters_copypaste
 from modules import script_callbacks, shared
 from modules.ui_components import ToolButton as ToolButton_webui
 
-from scripts.easyphoto_config import (
+from extensions.sd_EasyPhoto.scripts.easyphoto_config import (
     DEFAULT_SCENE_LORA,
     DEFAULT_CLOTH_LORA,
     DEFAULT_TRYON_TEMPLATE,
@@ -19,10 +19,10 @@ from scripts.easyphoto_config import (
     tryon_preview_dir,
     tryon_gallery_dir,
 )
-from scripts.easyphoto_infer import easyphoto_infer_forward, easyphoto_video_infer_forward
-from scripts.easyphoto_train import easyphoto_train_forward
-from scripts.easyphoto_tryon_infer import easyphoto_tryon_infer_forward, easyphoto_tryon_mask_forward
-from scripts.easyphoto_utils import (
+from extensions.sd_EasyPhoto.scripts.easyphoto_infer import easyphoto_infer_forward, easyphoto_video_infer_forward
+from extensions.sd_EasyPhoto.scripts.easyphoto_train import easyphoto_train_forward
+from extensions.sd_EasyPhoto.scripts.easyphoto_tryon_infer import easyphoto_tryon_infer_forward, easyphoto_tryon_mask_forward
+from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
     check_files_exists_and_download,
     check_id_valid,
     check_scene_valid,
@@ -32,10 +32,10 @@ from scripts.easyphoto_utils import (
     video_visible,
     unload_models,
 )
-from scripts.sdwebui import get_checkpoint_type, get_scene_prompt
+from extensions.sd_EasyPhoto.scripts.sdwebui import get_checkpoint_type, get_scene_prompt
 
 if not check_loractl_conflict():
-    from scripts.easyphoto_utils import LoraCtlScript
+    from extensions.sd_EasyPhoto.scripts.easyphoto_utils import LoraCtlScript
 else:
     ep_logger.info("Import LoraCtlScript from sd-webui-loractl since the plugin already exists and is enabled.")
 

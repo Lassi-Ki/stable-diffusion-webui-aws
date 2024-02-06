@@ -19,7 +19,7 @@ from modules.sd_vae import refresh_vae_list
 from modules.shared import opts
 from modules.timer import Timer
 
-from scripts.easyphoto_utils import (
+from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
     AnimateDiffControl,
     AnimateDiffI2VLatent,
     AnimateDiffInfV2V,

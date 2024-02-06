@@ -4,11 +4,9 @@ import io
 import os
 import time
 import datetime
-
 import numpy as np
 import uvicorn
 import ipaddress
-import requests
 import gradio as gr
 from threading import Lock
 from io import BytesIO
@@ -18,14 +16,11 @@ from fastapi.exceptions import HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from secrets import compare_digest
-
 from tqdm import tqdm
-
 import modules.shared as shared
 from modules import sd_samplers, deepbooru, sd_hijack, images, scripts, ui, postprocessing, errors, restart, shared_items
 from modules.api import models
-from modules.shared import opts
-from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images
+from modules.processing import  process_images
 from modules.textual_inversion.textual_inversion import create_embedding, train_embedding
 from modules.textual_inversion.preprocess import preprocess
 from modules.hypernetworks.hypernetwork import create_hypernetwork, train_hypernetwork
@@ -34,14 +29,11 @@ from modules.sd_models import unload_model_weights, reload_model_weights, checkp
 from modules.sd_models_config import find_checkpoint_config_near_filename
 from modules.realesrgan_model import get_realesrgan_models
 from modules import devices
-from typing import Dict, List, Any, Optional
 import piexif
 import piexif.helper
 from contextlib import closing
-
-from typing import Union
 import traceback
-from modules.sd_vae import reload_vae_weights, refresh_vae_list
+from modules.sd_vae import reload_vae_weights
 import uuid
 import json
 import requests
@@ -49,13 +41,11 @@ import psutil
 import gc
 from modules.sync_models import get_local_folder
 from modules.api.models import *
-
-from extensions.sd_EasyPhoto.api_test.post_train import post_train
-from extensions.sd_EasyPhoto.api_test.post_infer import post_infer
 from glob import glob
 import cv2
 import torch
 from extensions.sd_EasyPhoto.scripts.easyphoto_train import easyphoto_train_forward
+from extensions.sd_EasyPhoto.scripts.easyphoto_infer import easyphoto_infer_forward
 
 
 def decode_image_from_base64jpeg(base64_image):
@@ -960,12 +950,12 @@ class Api:
                         encoded_images.append(encoded_image)
                 time_start = time.time()
                 # easyphoto_train
-                payload = {
+                payload_train = {
                     "sd_model_checkpoint": req.model,
                     "user_id": req.id,
                     "instance_images": encoded_images,
                 }
-                outputs = self.easyphoto_train(payload)
+                outputs = self.easyphoto_train(payload_train)
                 time_end = time.time()
                 time_sum = (time_end - time_start) // 60
                 print("# --------------------------------------------------------- #")
@@ -977,40 +967,47 @@ class Api:
                 time.sleep(10)
 
                 # Inference
-                # image_formats = ["*.jpg", "*.jpeg", "*.png", "*.webp"]
-                # img_list = []
-                # template_dir = './extensions/sd_EasyPhoto/models/infer_templates/'
-                # for image_format in image_formats:
-                #     img_list.extend(glob(os.path.join(template_dir, image_format)))
-                # if len(img_list) == 0:
-                #     print(f" Input template dir {template_dir} contains no images")
-                # else:
-                #     print(f" Total {len(img_list)} templates to process for {req.id} ID")
-                # print(img_list)
-                # now_date = datetime.datetime.now()
-                # time_start = time.time()
-                # output_path = './outputs_easyphoto/'
-                #
-                # for img_path in tqdm(img_list):
-                #     print(f" Call generate for ID ({req.id}) and Template ({img_path})")
-                #     with open(img_path, "rb") as f:
-                #         encoded_image = base64.b64encode(f.read()).decode("utf-8")
-                #         outputs = post_infer(encoded_image, user_id=req.id)
-                #         outputs = json.loads(outputs)
-                #         if len(outputs["outputs"]):
-                #             image = decode_image_from_base64jpeg(outputs["outputs"][0])
-                #             toutput_path = os.path.join(os.path.join(output_path),
-                #                                         f"{req.id}_" + os.path.basename(img_path))
-                #             print(output_path)
-                #             cv2.imwrite(toutput_path, image)
-                #         else:
-                #             print("Error!", outputs["message"])
-                #         print(outputs["message"])
-                # time_end = time.time()
-                # time_sum = time_end - time_start
-                # print("# --------------------------------------------------------- #")
-                # print(f"#   Total expenditure: {time_sum}s")
-                # print("# --------------------------------------------------------- #")
+                image_formats = ["*.jpg", "*.jpeg", "*.png", "*.webp"]
+                img_list = []
+                template_dir = './extensions/sd_EasyPhoto/models/infer_templates/'
+                for image_format in image_formats:
+                    img_list.extend(glob(os.path.join(template_dir, image_format)))
+                if len(img_list) == 0:
+                    print(f" Input template dir {template_dir} contains no images")
+                else:
+                    print(f" Total {len(img_list)} templates to process for {req.id} ID")
+                print(img_list)
+                now_date = datetime.datetime.now()
+                time_start = time.time()
+                output_path = './outputs_easyphoto/'
+                selected_template_images = []
+
+                for img_path in tqdm(img_list):
+                    # print(f" Call generate for ID ({req.id}) and Template ({img_path})")
+                    with open(img_path, "rb") as f:
+                        encoded_image = base64.b64encode(f.read()).decode("utf-8")
+                        selected_template_images.append(encoded_image)
+                        # payload_infer = {
+                        #     "user_ids": [req.id],
+                        #     "sd_model_checkpoint": req.model,
+                        #     "selected_template_images": [encoded_image],
+                        # }
+                        # outputs = self.easyphoto_infer(payload_infer)
+                        # outputs = json.loads(outputs)
+                        # if len(outputs["outputs"]):
+                        #     image = decode_image_from_base64jpeg(outputs["outputs"][0])
+                        #     toutput_path = os.path.join(os.path.join(output_path),
+                        #                                 f"{req.id}_" + os.path.basename(img_path))
+                        #     print(output_path)
+                        #     cv2.imwrite(toutput_path, image)
+                        # else:
+                        #     print("Error!", outputs["message"])
+                        # print(outputs["message"])
+                time_end = time.time()
+                time_sum = time_end - time_start
+                print("# --------------------------------------------------------- #")
+                print(f"#   Total expenditure: {time_sum}s")
+                print("# --------------------------------------------------------- #")
 
                 # response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
                 return outputs
@@ -1119,4 +1116,177 @@ class Api:
         return {"message": message}
 
     def easyphoto_infer(self, datas: dict):
-        pass
+        user_ids = datas.get("user_ids", [])
+        sd_model_checkpoint = datas.get("sd_model_checkpoint", "Chilloutmix-Ni-pruned-fp16-fix.safetensors")
+        selected_template_images = datas.get("selected_template_images", [])
+        init_image = datas.get("init_image", None)
+        uploaded_template_images = datas.get("uploaded_template_images", [])
+
+        text_to_image_input_prompt = datas.get(
+            "text_to_image_input_prompt",
+            "upper-body, look at viewer, one twenty years old girl, wear white dress, standing, in the garden with flowers, in the winter, daytime, snow, f32",
+        )
+        text_to_image_width = datas.get("text_to_image_width", 1024)
+        text_to_image_height = datas.get("text_to_image_height", 1024)
+
+        t2i_control_way = datas.get("t2i_control_way", "Control with inner template")
+        t2i_pose_template = datas.get("t2i_pose_template", None)
+
+        scene_id = datas.get("scene_id", "none")
+        prompt_generate_sd_model_checkpoint = datas.get("sd_model_checkpoint", "LZ-16K+Optics.safetensors")
+
+        additional_prompt = datas.get("additional_prompt", "")
+        lora_weights = datas.get("lora_weights", 0.9)
+
+        first_diffusion_steps = datas.get("first_diffusion_steps", 50)
+        first_denoising_strength = datas.get("first_denoising_strength", 0.45)
+
+        second_diffusion_steps = datas.get("second_diffusion_steps", 20)
+        second_denoising_strength = datas.get("second_denoising_strength", 0.35)
+        seed = datas.get("seed", -1)
+        crop_face_preprocess = datas.get("crop_face_preprocess", True)
+
+        before_face_fusion_ratio = datas.get("before_face_fusion_ratio", 0.50)
+        after_face_fusion_ratio = datas.get("after_face_fusion_ratio", 0.50)
+        apply_face_fusion_before = datas.get("apply_face_fusion_before", True)
+        apply_face_fusion_after = datas.get("apply_face_fusion_after", True)
+        color_shift_middle = datas.get("color_shift_middle", True)
+        color_shift_last = datas.get("color_shift_last", True)
+        super_resolution = datas.get("super_resolution", True)
+        super_resolution_method = datas.get("super_resolution_method", "gpen")
+        super_resolution_ratio = datas.get("super_resolution_ratio", 0.5)
+        # 妆容迁移
+        skin_retouching_bool = datas.get("skin_retouching_bool", False)
+        display_score = datas.get("display_score", False)
+        background_restore = datas.get("background_restore", False)
+        background_restore_denoising_strength = datas.get("background_restore_denoising_strength", 0.35)
+        makeup_transfer = datas.get("makeup_transfer", False)
+        makeup_transfer_ratio = datas.get("makeup_transfer_ratio", 0.50)
+        face_shape_match = datas.get("face_shape_match", False)
+        tabs = datas.get("tabs", 1)
+
+        ipa_control = datas.get("ipa_control", False)
+        ipa_weight = datas.get("ipa_weight", 0.50)
+        ipa_image = datas.get("ipa_image", None)
+
+        ref_mode_choose = datas.get("ref_mode_choose", "Infer with Pretrained Lora")
+        ipa_only_weight = datas.get("ipa_only_weight", 0.60)
+        ipa_only_image = datas.get("ipa_only_image", None)
+
+        lcm_accelerate = datas.get("lcm_accelerate", None)
+        enable_second_diffusion = datas.get("enable_second_diffusion", True)
+
+        if type(user_ids) == str:
+            user_ids = [user_ids]
+
+        selected_template_images = [decode_base64_to_image(_) for _ in selected_template_images]
+        init_image = None if init_image is None else decode_base64_to_image(init_image)
+        uploaded_template_images = [decode_base64_to_image(_) for _ in uploaded_template_images]
+        t2i_pose_template = None if t2i_pose_template is None else decode_base64_to_image(t2i_pose_template)
+        ipa_image = None if ipa_image is None else decode_base64_to_image(ipa_image)
+        ipa_only_image = None if ipa_only_image is None else decode_base64_to_image(ipa_only_image)
+
+        _selected_template_images = []
+        for selected_template_image in selected_template_images:
+            hash_value = hashlib.md5(selected_template_image.tobytes()).hexdigest()
+            save_path = os.path.join("/tmp", hash_value + ".jpg")
+            selected_template_image.save(save_path)
+            _selected_template_images.append(save_path)
+        selected_template_images = str(_selected_template_images)
+
+        if init_image is not None:
+            if init_image.mode in ('P'):
+                init_image = init_image.convert('RGB')
+            init_image = np.array(init_image)
+
+        _uploaded_template_images = []
+        for uploaded_template_image in uploaded_template_images:
+            hash_value = hashlib.md5(uploaded_template_image.tobytes()).hexdigest()
+            save_path = os.path.join("/tmp", hash_value + ".jpg")
+            uploaded_template_image.save(save_path)
+            _uploaded_template_images.append({"name": save_path})
+        uploaded_template_images = _uploaded_template_images
+
+        if t2i_pose_template is not None:
+            t2i_pose_template = np.uint8(t2i_pose_template)
+
+        if ipa_image is not None:
+            hash_value = hashlib.md5(ipa_image.tobytes()).hexdigest()
+            save_path = os.path.join("/tmp", hash_value + ".jpg")
+            ipa_image.save(save_path)
+            ipa_image_path = save_path
+        else:
+            ipa_image_path = None
+
+        if ipa_only_image is not None:
+            hash_value = hashlib.md5(ipa_only_image.tobytes()).hexdigest()
+            save_path = os.path.join("/tmp", hash_value + ".jpg")
+            ipa_only_image.save(save_path)
+            ipa_only_image_path = save_path
+        else:
+            ipa_only_image_path = None
+
+        tabs = int(tabs)
+        try:
+            comment, outputs, face_id_outputs = easyphoto_infer_forward(
+                sd_model_checkpoint,
+                selected_template_images,
+                init_image,
+                uploaded_template_images,
+                text_to_image_input_prompt,
+                text_to_image_width,
+                text_to_image_height,
+                t2i_control_way,
+                t2i_pose_template,
+                scene_id,
+                prompt_generate_sd_model_checkpoint,
+                additional_prompt,
+                lora_weights,
+                before_face_fusion_ratio,
+                after_face_fusion_ratio,
+                first_diffusion_steps,
+                first_denoising_strength,
+                second_diffusion_steps,
+                second_denoising_strength,
+                seed,
+                crop_face_preprocess,
+                apply_face_fusion_before,
+                apply_face_fusion_after,
+                color_shift_middle,
+                color_shift_last,
+                super_resolution,
+                super_resolution_method,
+                super_resolution_ratio,
+                skin_retouching_bool,
+                display_score,
+                background_restore,
+                background_restore_denoising_strength,
+                makeup_transfer,
+                makeup_transfer_ratio,
+                face_shape_match,
+                tabs,
+                ipa_control,
+                ipa_weight,
+                ipa_image_path,
+                ref_mode_choose,
+                ipa_only_weight,
+                ipa_only_image_path,
+                lcm_accelerate,
+                enable_second_diffusion,
+                *user_ids,
+            )
+            outputs = [encode_pil_to_base64(output) for output in outputs]
+            face_id_outputs_base64 = []
+            if len(face_id_outputs) != 0:
+                for item in face_id_outputs:
+                    pil_base64 = encode_pil_to_base64(item[0])
+                    score_base64 = base64.b64encode(item[1].encode("utf-8")).decode("utf-8")
+                    face_id_outputs_base64.append((pil_base64, score_base64))
+        except Exception as e:
+            torch.cuda.empty_cache()
+            comment = f"Infer error, error info:{str(e)}"
+            outputs = []
+            face_id_outputs_base64 = []
+            traceback.print_exc()
+
+        return {"message": comment, "outputs": outputs, "face_id_outputs": face_id_outputs_base64}
