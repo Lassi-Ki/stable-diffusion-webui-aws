@@ -1,9 +1,10 @@
 import os
-from modules.paths import data_path, models_path, extensions_builtin_dir, extensions_dir
+from modules.paths import data_path, extensions_builtin_dir, extensions_dir
+from modules.shared import tmp_models_dir
 
 # save_dirs
 data_dir = data_path
-models_path = models_path
+models_path = tmp_models_dir
 extensions_builtin_dir = extensions_builtin_dir
 extensions_dir = extensions_dir
 easyphoto_models_path = os.path.abspath(os.path.dirname(__file__)).replace("scripts", "models")

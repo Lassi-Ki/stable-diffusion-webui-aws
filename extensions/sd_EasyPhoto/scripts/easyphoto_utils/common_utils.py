@@ -429,7 +429,7 @@ save_filenames = {
 
 
 def check_scene_valid(lora_path, models_path) -> bool:
-    from scripts.sdwebui import read_lora_metadata
+    from extensions.sd_EasyPhoto.scripts.sdwebui import read_lora_metadata
     
     safetensors_lora_path = os.path.join(models_path, "Lora", lora_path)
     if not safetensors_lora_path.endswith("safetensors"):

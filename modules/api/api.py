@@ -948,6 +948,7 @@ class Api:
                     with open(img_path, "rb") as f:
                         encoded_image = base64.b64encode(f.read()).decode("utf-8")
                         encoded_images.append(encoded_image)
+                print(f'encoded_images size: {len(encoded_images)}')
                 time_start = time.time()
                 # easyphoto_train
                 payload_train = {

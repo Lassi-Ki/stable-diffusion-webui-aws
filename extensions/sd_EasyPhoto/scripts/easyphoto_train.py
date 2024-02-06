@@ -153,6 +153,8 @@ def easyphoto_train_forward(
     os.makedirs(images_save_path, exist_ok=True)
     os.makedirs(os.path.dirname(os.path.abspath(webui_save_path)), exist_ok=True)
 
+    print("==============================================================================================")
+
     max_train_steps = int(min(len(instance_images) * int(steps_per_photos), int(max_train_steps)))
     local_validation_prompt = None
     if isinstance(instance_images[0], list):
