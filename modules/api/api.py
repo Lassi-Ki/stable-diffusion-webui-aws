@@ -1,4 +1,5 @@
 import base64
+import hashlib
 import io
 import os
 import time
@@ -53,6 +54,8 @@ from extensions.sd_EasyPhoto.api_test.post_train import post_train
 from extensions.sd_EasyPhoto.api_test.post_infer import post_infer
 from glob import glob
 import cv2
+import torch
+from extensions.sd_EasyPhoto.scripts.easyphoto_train import easyphoto_train_forward
 
 
 def decode_image_from_base64jpeg(base64_image):
@@ -351,6 +354,16 @@ class Api:
         self.add_api_route("/sdapi/v1/script-info", self.get_script_info, methods=["GET"], response_model=List[models.ScriptInfo])
         self.add_api_route("/invocations", self.invocations, methods=["POST"], response_model=Any)
         self.add_api_route("/ping", self.ping, methods=["GET"], response_model=models.PingResponse)
+        # add easyphoto
+        self.add_api_route("/easyphoto/easyphoto_train_forward",
+                           self.easyphoto_train_forward_api,
+                           methods=["POST"],
+                           response_model=Any)
+        self.add_api_route("easyphoto/easyphoto_infer_forward",
+                           self.easyphoto_infer_forward_api,
+                           methods=["POST"],
+                           response_model=Any)
+
 
         if shared.cmd_opts.api_server_stop:
             self.add_api_route("/sdapi/v1/server-kill", self.kill_webui, methods=["POST"])
@@ -946,7 +959,13 @@ class Api:
                         encoded_image = base64.b64encode(f.read()).decode("utf-8")
                         encoded_images.append(encoded_image)
                 time_start = time.time()
-                outputs = post_train(encoded_images)
+                # easyphoto_train
+                payload = {
+                    "sd_model_checkpoint": req.model,
+                    "user_id": req.id,
+                    "instance_images": encoded_images,
+                }
+                outputs = self.easyphoto_train(payload)
                 time_end = time.time()
                 time_sum = (time_end - time_start) // 60
                 print("# --------------------------------------------------------- #")
@@ -958,40 +977,40 @@ class Api:
                 time.sleep(10)
 
                 # Inference
-                image_formats = ["*.jpg", "*.jpeg", "*.png", "*.webp"]
-                img_list = []
-                template_dir = './extensions/sd_EasyPhoto/models/infer_templates/'
-                for image_format in image_formats:
-                    img_list.extend(glob(os.path.join(template_dir, image_format)))
-                if len(img_list) == 0:
-                    print(f" Input template dir {template_dir} contains no images")
-                else:
-                    print(f" Total {len(img_list)} templates to process for {req.id} ID")
-                print(img_list)
-                now_date = datetime.datetime.now()
-                time_start = time.time()
-                output_path = './outputs_easyphoto/'
-
-                for img_path in tqdm(img_list):
-                    print(f" Call generate for ID ({req.id}) and Template ({img_path})")
-                    with open(img_path, "rb") as f:
-                        encoded_image = base64.b64encode(f.read()).decode("utf-8")
-                        outputs = post_infer(encoded_image, user_id=req.id)
-                        outputs = json.loads(outputs)
-                        if len(outputs["outputs"]):
-                            image = decode_image_from_base64jpeg(outputs["outputs"][0])
-                            toutput_path = os.path.join(os.path.join(output_path),
-                                                        f"{req.id}_" + os.path.basename(img_path))
-                            print(output_path)
-                            cv2.imwrite(toutput_path, image)
-                        else:
-                            print("Error!", outputs["message"])
-                        print(outputs["message"])
-                time_end = time.time()
-                time_sum = time_end - time_start
-                print("# --------------------------------------------------------- #")
-                print(f"#   Total expenditure: {time_sum}s")
-                print("# --------------------------------------------------------- #")
+                # image_formats = ["*.jpg", "*.jpeg", "*.png", "*.webp"]
+                # img_list = []
+                # template_dir = './extensions/sd_EasyPhoto/models/infer_templates/'
+                # for image_format in image_formats:
+                #     img_list.extend(glob(os.path.join(template_dir, image_format)))
+                # if len(img_list) == 0:
+                #     print(f" Input template dir {template_dir} contains no images")
+                # else:
+                #     print(f" Total {len(img_list)} templates to process for {req.id} ID")
+                # print(img_list)
+                # now_date = datetime.datetime.now()
+                # time_start = time.time()
+                # output_path = './outputs_easyphoto/'
+                #
+                # for img_path in tqdm(img_list):
+                #     print(f" Call generate for ID ({req.id}) and Template ({img_path})")
+                #     with open(img_path, "rb") as f:
+                #         encoded_image = base64.b64encode(f.read()).decode("utf-8")
+                #         outputs = post_infer(encoded_image, user_id=req.id)
+                #         outputs = json.loads(outputs)
+                #         if len(outputs["outputs"]):
+                #             image = decode_image_from_base64jpeg(outputs["outputs"][0])
+                #             toutput_path = os.path.join(os.path.join(output_path),
+                #                                         f"{req.id}_" + os.path.basename(img_path))
+                #             print(output_path)
+                #             cv2.imwrite(toutput_path, image)
+                #         else:
+                #             print("Error!", outputs["message"])
+                #         print(outputs["message"])
+                # time_end = time.time()
+                # time_sum = time_end - time_start
+                # print("# --------------------------------------------------------- #")
+                # print(f"#   Total expenditure: {time_sum}s")
+                # print("# --------------------------------------------------------- #")
 
                 # response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
                 return outputs
@@ -1009,7 +1028,6 @@ class Api:
             gc.collect()
             print("Garbage collection completed.")
 
-
     def check_file_existence(self, payload_checks: PayloadChecks):
         if payload_checks is None:
             return None
@@ -1026,3 +1044,79 @@ class Api:
 
     def ping(self):
         return {'status': 'Healthy'}
+
+    def easyphoto_train_forward_api(self):
+        pass
+
+    def easyphoto_infer_forward_api(self):
+        pass
+
+    def easyphoto_train(self, datas: dict):
+        sd_model_checkpoint = datas.get("sd_model_checkpoint", "sd_xl_base_1.0.safetensors")
+        id_task = datas.get("id_task", "")
+        user_id = datas.get("user_id", "tmp")
+        train_mode_choose = datas.get("train_mode_choose", "Train Human Lora")
+        resolution = datas.get("resolution", 512)
+        val_and_checkpointing_steps = datas.get("val_and_checkpointing_steps", 100)
+        max_train_steps = datas.get("max_train_steps", 800)
+        steps_per_photos = datas.get("steps_per_photos", 200)
+        train_batch_size = datas.get("train_batch_size", 1)
+        gradient_accumulation_steps = datas.get("gradient_accumulation_steps", 4)
+        dataloader_num_workers = datas.get("dataloader_num_workers", 16)
+        learning_rate = datas.get("learning_rate", 1e-4)
+        rank = datas.get("rank", 128)
+        network_alpha = datas.get("network_alpha", 64)
+        instance_images = datas.get("instance_images", [])
+        validation = datas.get("validation", False)
+        enable_rl = datas.get("enable_rl", False)
+        max_rl_time = datas.get("max_rl_time", 1)
+        timestep_fraction = datas.get("timestep_fraction", 1)
+        skin_retouching_bool = datas.get("skin_retouching_bool", False)
+        training_prefix_prompt = datas.get("training_prefix_prompt", "")
+        crop_ratio = datas.get("crop_ratio", 3)
+        args = datas.get("args", [])
+
+        instance_images = [decode_base64_to_image(init_image) for init_image in instance_images]
+        _instance_images = []
+        for instance_image in instance_images:
+            hash_value = hashlib.md5(instance_image.tobytes()).hexdigest()
+            save_path = os.path.join("/tmp", hash_value + ".jpg")
+            instance_image = instance_image.convert("RGB")
+            instance_image.save(save_path)
+            _instance_images.append({"name": save_path})
+        instance_images = _instance_images
+
+        try:
+            message = easyphoto_train_forward(
+                sd_model_checkpoint,
+                id_task,
+                user_id,
+                train_mode_choose,
+                resolution,
+                val_and_checkpointing_steps,
+                max_train_steps,
+                steps_per_photos,
+                train_batch_size,
+                gradient_accumulation_steps,
+                dataloader_num_workers,
+                learning_rate,
+                rank,
+                network_alpha,
+                validation,
+                instance_images,
+                enable_rl,
+                max_rl_time,
+                timestep_fraction,
+                skin_retouching_bool,
+                training_prefix_prompt,
+                crop_ratio,
+                *args,
+            )
+        except Exception as e:
+            torch.cuda.empty_cache()
+            message = f"Train error, error info:{str(e)}"
+            traceback.print_exc()
+        return {"message": message}
+
+    def easyphoto_infer(self, datas: dict):
+        pass
