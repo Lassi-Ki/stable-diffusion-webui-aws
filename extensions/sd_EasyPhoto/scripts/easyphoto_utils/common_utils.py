@@ -648,13 +648,13 @@ def convert_to_video(path, frames, fps, prefix=None, mode="gif"):
 def modelscope_models_to_cpu():
     """Load models to cpu to free VRAM."""
     ms_models = [
-        scripts.easyphoto_infer.retinaface_detection,
-        scripts.easyphoto_infer.image_face_fusion,
-        scripts.easyphoto_infer.skin_retouching,
-        scripts.easyphoto_infer.portrait_enhancement,
-        scripts.easyphoto_infer.face_skin,
-        scripts.easyphoto_infer.face_recognition,
-        scripts.easyphoto_infer.psgan_inference,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.retinaface_detection,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.image_face_fusion,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.skin_retouching,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.portrait_enhancement,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_skin,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_recognition,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.psgan_inference,
     ]
     for ms_model in ms_models:
         if hasattr(ms_model, "__dict__"):
@@ -674,13 +674,13 @@ def modelscope_models_to_cpu():
 def modelscope_models_to_gpu():
     """Load models to cuda."""
     ms_models = [
-        scripts.easyphoto_infer.retinaface_detection,
-        scripts.easyphoto_infer.image_face_fusion,
-        scripts.easyphoto_infer.skin_retouching,
-        scripts.easyphoto_infer.portrait_enhancement,
-        scripts.easyphoto_infer.face_skin,
-        scripts.easyphoto_infer.face_recognition,
-        scripts.easyphoto_infer.psgan_inference,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.retinaface_detection,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.image_face_fusion,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.skin_retouching,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.portrait_enhancement,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_skin,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_recognition,
+        extensions.sd_EasyPhoto.scripts.easyphoto_infer.psgan_inference,
     ]
     for ms_model in ms_models:
         if hasattr(ms_model, "__dict__"):
@@ -709,13 +709,13 @@ class switch_ms_model_cpu(ContextDecorator):
 
 def unload_models():
     """Unload models to free VRAM."""
-    scripts.easyphoto_infer.retinaface_detection = None
-    scripts.easyphoto_infer.image_face_fusion = None
-    scripts.easyphoto_infer.skin_retouching = None
-    scripts.easyphoto_infer.portrait_enhancement = None
-    scripts.easyphoto_infer.face_skin = None
-    scripts.easyphoto_infer.face_recognition = None
-    scripts.easyphoto_infer.psgan_inference = None
+    extensions.sd_EasyPhoto.scripts.easyphoto_infer.retinaface_detection = None
+    extensions.sd_EasyPhoto.scripts.easyphoto_infer.image_face_fusion = None
+    extensions.sd_EasyPhoto.scripts.easyphoto_infer.skin_retouching = None
+    extensions.sd_EasyPhoto.scripts.easyphoto_infer.portrait_enhancement = None
+    extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_skin = None
+    extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_recognition = None
+    extensions.sd_EasyPhoto.scripts.easyphoto_infer.psgan_inference = None
     gc.collect()
     torch.cuda.empty_cache()
     torch.cuda.ipc_collect()
