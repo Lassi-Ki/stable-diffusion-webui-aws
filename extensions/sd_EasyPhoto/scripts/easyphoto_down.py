@@ -502,3 +502,16 @@ def check_id_valid(user_id, user_id_outpath_samples, models_path):
     if not (os.path.exists(safetensors_lora_path) or os.path.exists(ckpt_lora_path)):
         return False
     return True
+
+
+def check_scene_valid(lora_path, models_path) -> bool:
+    from extensions.sd_EasyPhoto.scripts.sdwebui import read_lora_metadata
+
+    safetensors_lora_path = os.path.join(models_path, "Lora", lora_path)
+    if not safetensors_lora_path.endswith("safetensors"):
+        return False
+    metadata = read_lora_metadata(safetensors_lora_path)
+    if str(metadata.get("ep_lora_version", "")).startswith("scene"):
+        return True
+    else:
+        return False

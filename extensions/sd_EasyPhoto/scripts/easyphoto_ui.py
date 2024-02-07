@@ -23,9 +23,9 @@ from extensions.sd_EasyPhoto.scripts.easyphoto_infer import easyphoto_infer_forw
 from extensions.sd_EasyPhoto.scripts.easyphoto_train import easyphoto_train_forward
 from extensions.sd_EasyPhoto.scripts.easyphoto_tryon_infer import easyphoto_tryon_infer_forward, easyphoto_tryon_mask_forward
 from extensions.sd_EasyPhoto.scripts.easyphoto_down import (check_files_exists_and_download,
-                                                            check_id_valid)
+                                                            check_id_valid,
+                                                            check_scene_valid)
 from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
-    check_scene_valid,
     check_loractl_conflict,
     ep_logger,
     get_attribute_edit_ids,
