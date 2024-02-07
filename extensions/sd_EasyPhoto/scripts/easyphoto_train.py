@@ -16,10 +16,9 @@ from extensions.sd_EasyPhoto.scripts.easyphoto_config import (
     validation_prompt,
     validation_prompt_scene,
 )
-from extensions.sd_EasyPhoto.scripts.easyphoto_down import check_files_exists_and_download
+from extensions.sd_EasyPhoto.scripts.easyphoto_down import (check_files_exists_and_download,
+                                                            check_id_valid)
 from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
-     check_id_valid,
-     check_scene_valid,
      ep_logger,
      unload_models)
 from extensions.sd_EasyPhoto.scripts.sdwebui import get_checkpoint_type, unload_sd

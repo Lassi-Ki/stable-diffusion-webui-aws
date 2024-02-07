@@ -16,7 +16,6 @@ import boto3
 import sys
 import json
 from modules.sync_models import initial_s3_download, sync_s3_folder
-from modules.shared_cmd_options import cmd_opts
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd-webui-controlnet'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_dreambooth_extension'))
@@ -194,10 +193,6 @@ def webui():
 
         startup_timer.record("gradio launch")
 
-        # gradio uses a very open CORS policy via app.user_middleware, which makes it possible for
-        # an attacker to trick the user into opening a malicious HTML page, which makes a request to the
-        # running web ui and do whatever the attacker wants, including installing an extension and
-        # running its code. We disable this here. Suggested by RyotaK.
         app.user_middleware = [x for x in app.user_middleware if x.cls.__name__ != 'CORSMiddleware']
 
         initialize_util.setup_middleware(app)

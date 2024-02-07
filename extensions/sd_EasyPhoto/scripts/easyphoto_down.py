@@ -490,3 +490,15 @@ def check_files_exists_and_download(check_hash, download_mode="base"):
         ep_logger.info(f"Start Downloading: {url}")
         os.makedirs(os.path.dirname(filename[0]), exist_ok=True)
         urldownload_progressbar(url, filename[0])
+
+
+def check_id_valid(user_id, user_id_outpath_samples, models_path):
+    face_id_image_path = os.path.join(user_id_outpath_samples, user_id, "ref_image.jpg")
+    if not os.path.exists(face_id_image_path):
+        return False
+
+    safetensors_lora_path = os.path.join(models_path, "Lora", f"{user_id}.safetensors")
+    ckpt_lora_path = os.path.join(models_path, "Lora", f"{user_id}.ckpt")
+    if not (os.path.exists(safetensors_lora_path) or os.path.exists(ckpt_lora_path)):
+        return False
+    return True

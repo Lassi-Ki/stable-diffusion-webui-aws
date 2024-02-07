@@ -8,9 +8,12 @@ import traceback
 import torch
 from fastapi import FastAPI
 from modules.api import api
-from extensions.sd_EasyPhoto.scripts.easyphoto_infer import easyphoto_infer_forward, easyphoto_video_infer_forward
+from extensions.sd_EasyPhoto.scripts.easyphoto_infer import (easyphoto_infer_forward,
+                                                             easyphoto_video_infer_forward)
 from extensions.sd_EasyPhoto.scripts.easyphoto_train import easyphoto_train_forward
-from extensions.sd_EasyPhoto.scripts.easyphoto_utils import decode_base64_to_video, ep_logger, encode_video_to_base64
+from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (decode_base64_to_video,
+                                                             ep_logger,
+                                                             encode_video_to_base64)
 
 
 def easyphoto_train_forward_api(_: gr.Blocks, app: FastAPI):
