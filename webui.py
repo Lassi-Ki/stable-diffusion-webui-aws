@@ -1,8 +1,6 @@
 from __future__ import annotations
-
 import os
 import time
-
 from modules import timer
 from modules import initialize_util
 from modules import initialize
@@ -11,18 +9,18 @@ startup_timer = timer.startup_timer
 startup_timer.record("launcher")
 
 initialize.imports()
-
 initialize.check_versions()
 
 from huggingface_hub import hf_hub_download
 import boto3
 import sys
 import json
-from modules.sync_models import initial_s3_download,sync_s3_folder
+from modules.sync_models import initial_s3_download, sync_s3_folder
 from modules.shared_cmd_options import cmd_opts
 
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd-webui-controlnet'))
 sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_dreambooth_extension'))
+sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_EasyPhoto'))
 
 
 def create_api(app):
@@ -252,13 +250,5 @@ def webui():
         initialize.initialize_rest(reload_script_modules=True)
 
 
-if cmd_opts.train:
-    print("Training mode is not supported.")
-
 if __name__ == "__main__":
-    from modules.shared_cmd_options import cmd_opts
-
-    if cmd_opts.nowebui:
-        api_only()
-    else:
-        webui()
+    webui()

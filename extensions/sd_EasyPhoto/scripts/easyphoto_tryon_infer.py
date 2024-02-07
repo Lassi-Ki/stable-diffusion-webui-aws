@@ -27,7 +27,6 @@ from scripts.easyphoto_infer import inpaint
 from scripts.easyphoto_utils import (
     align_and_overlay_images,
     apply_mask_to_image,
-    check_files_exists_and_download,
     compute_rotation_angle,
     copy_white_mask_to_template,
     crop_image,

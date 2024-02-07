@@ -32,6 +32,7 @@ from extensions.sd_EasyPhoto.scripts.easyphoto_config import (
     user_id_outpath_samples,
     validation_prompt,
 )
+from extensions.sd_EasyPhoto.scripts.easyphoto_down import check_files_exists_and_download
 from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
     Face_Skin,
     FIRE_forward,
@@ -39,7 +40,6 @@ from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
     alignment_photo,
     call_face_crop,
     call_face_crop_templates,
-    check_files_exists_and_download,
     check_id_valid,
     check_scene_valid,
     color_transfer,

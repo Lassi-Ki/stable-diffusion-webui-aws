@@ -1,25 +1,17 @@
-import copy
-import gc
-import hashlib
-import logging
 import os
-import re
-import traceback
-from contextlib import ContextDecorator
-
-import base64
-import cv2
-import random
-import numpy as np
+import logging
 import requests
-import torch
-import torchvision
-from modelscope.utils.logger import get_logger as ms_get_logger
-from tqdm import tqdm
+import hashlib
 
+from tqdm import tqdm
 from modules import shared
-import extensions.sd_EasyPhoto.scripts.easyphoto_infer
-from extensions.sd_EasyPhoto.scripts.easyphoto_config import data_path, easyphoto_models_path, models_path, tryon_gallery_dir, DEFAULT_SLIDERS
+from extensions.sd_EasyPhoto.scripts.easyphoto_config import (
+    data_path,
+    easyphoto_models_path,
+    models_path,
+    tryon_gallery_dir)
+from modelscope.utils.logger import get_logger as ms_get_logger
+
 
 # Ms logger set
 ms_logger = ms_get_logger()
@@ -240,6 +232,7 @@ download_urls = {
         "https://pai-aigc-photog.oss-cn-hangzhou.aliyuncs.com/webui/xl_sliders/age_sdxl_sliders.pt",
     ],
 }
+
 save_filenames = {
     # The models are from civitai/6424 & civitai/118913, we saved them to oss for your convenience in downloading the models.
     "base": [
@@ -428,38 +421,37 @@ save_filenames = {
 }
 
 
-def check_scene_valid(lora_path, models_path) -> bool:
-    from extensions.sd_EasyPhoto.scripts.sdwebui import read_lora_metadata
-    
-    safetensors_lora_path = os.path.join(models_path, "Lora", lora_path)
-    if not safetensors_lora_path.endswith("safetensors"):
-        return False
-    metadata = read_lora_metadata(safetensors_lora_path)
-    if str(metadata.get("ep_lora_version", "")).startswith("scene"):
+def compare_hash_link_file(url, file_path):
+    if not shared.opts.data.get("easyphoto_check_hash", True):
         return True
+    r = requests.head(url)
+    total_size = int(r.headers["Content-Length"])
+
+    res = requests.get(url, stream=True)
+    remote_head_hash = hashlib.sha256(res.raw.read(1000)).hexdigest()
+    res.close()
+
+    end_pos = total_size - 1000
+    headers = {"Range": f"bytes={end_pos}-{total_size-1}"}
+    res = requests.get(url, headers=headers, stream=True)
+    remote_end_hash = hashlib.sha256(res.content).hexdigest()
+    res.close()
+
+    with open(file_path, "rb") as f:
+        local_head_data = f.read(1000)
+        local_head_hash = hashlib.sha256(local_head_data).hexdigest()
+
+        f.seek(end_pos)
+        local_end_data = f.read(1000)
+        local_end_hash = hashlib.sha256(local_end_data).hexdigest()
+
+    if remote_head_hash == local_head_hash and remote_end_hash == local_end_hash:
+        ep_logger.info(f"{file_path} : Hash match")
+        return True
+
     else:
+        ep_logger.info(f" {file_path} : Hash mismatch")
         return False
-
-
-def get_attribute_edit_ids():
-    attribute_edit_ids = copy.deepcopy(DEFAULT_SLIDERS)
-    for lora_name in os.listdir(os.path.join(models_path, "Lora")):
-        if lora_name.endswith("sliders.safentensors") or lora_name.endswith("sliders.pt"):
-            if os.path.splitext(lora_name)[0] not in set(attribute_edit_ids):
-                attribute_edit_ids.append(os.path.splitext(lora_name)[0])
-    return sorted(attribute_edit_ids)
-
-
-def check_id_valid(user_id, user_id_outpath_samples, models_path):
-    face_id_image_path = os.path.join(user_id_outpath_samples, user_id, "ref_image.jpg")
-    if not os.path.exists(face_id_image_path):
-        return False
-
-    safetensors_lora_path = os.path.join(models_path, "Lora", f"{user_id}.safetensors")
-    ckpt_lora_path = os.path.join(models_path, "Lora", f"{user_id}.ckpt")
-    if not (os.path.exists(safetensors_lora_path) or os.path.exists(ckpt_lora_path)):
-        return False
-    return True
 
 
 def urldownload_progressbar(url, file_path):
@@ -498,289 +490,3 @@ def check_files_exists_and_download(check_hash, download_mode="base"):
         ep_logger.info(f"Start Downloading: {url}")
         os.makedirs(os.path.dirname(filename[0]), exist_ok=True)
         urldownload_progressbar(url, filename[0])
-
-
-# Calculate the hash value of the download link and downloaded_file by sha256
-def compare_hash_link_file(url, file_path):
-    if not shared.opts.data.get("easyphoto_check_hash", True):
-        return True
-    r = requests.head(url)
-    total_size = int(r.headers["Content-Length"])
-
-    res = requests.get(url, stream=True)
-    remote_head_hash = hashlib.sha256(res.raw.read(1000)).hexdigest()
-    res.close()
-
-    end_pos = total_size - 1000
-    headers = {"Range": f"bytes={end_pos}-{total_size-1}"}
-    res = requests.get(url, headers=headers, stream=True)
-    remote_end_hash = hashlib.sha256(res.content).hexdigest()
-    res.close()
-
-    with open(file_path, "rb") as f:
-        local_head_data = f.read(1000)
-        local_head_hash = hashlib.sha256(local_head_data).hexdigest()
-
-        f.seek(end_pos)
-        local_end_data = f.read(1000)
-        local_end_hash = hashlib.sha256(local_end_data).hexdigest()
-
-    if remote_head_hash == local_head_hash and remote_end_hash == local_end_hash:
-        ep_logger.info(f"{file_path} : Hash match")
-        return True
-
-    else:
-        ep_logger.info(f" {file_path} : Hash mismatch")
-        return False
-
-
-def get_mov_all_images(file: str, required_fps: int) -> tuple:
-    """
-    Extracts a specific number of frames uniformly from a video file and converts them to a list of RGB images.
-
-    required_fps < video fps , uniform sampling frames
-    required_fps >= video fps, get all frames
-
-    Parameters:
-    - file (str): The path to the video file.
-    - required_fps (int): The required frame per second to extract.
-
-    Returns:
-    - image_list (tuple): A tuple containing a list of RGB images and the actual number of frames extracted.
-             Returns None if the file cannot be opened or if 'file' is None.
-    - required_fps (int): The actual fps after extracting a specific number of frames uniformly from a video file.
-    """
-    if file is None:
-        return None
-    cap = cv2.VideoCapture(file)
-
-    if not cap.isOpened():
-        return None
-
-    # Frames cannot be greater than the actual fps for sampling
-    fps = int(cap.get(cv2.CAP_PROP_FPS))
-    if required_fps > fps:
-        print("Waring: The set number of frames is greater than the number of video frames")
-        required_fps = fps
-
-    # Get all frames
-    movies = []
-    while True:
-        flag, frame = cap.read()
-        if not flag:
-            break
-        else:
-            movies.append(frame)
-    # Obtain the required frame
-    # Extracts a specific number of frames uniformly from a video
-    num_pics = int(required_fps / fps * len(movies))
-    target_indexs = list(np.rint(np.linspace(0, len(movies) - 1, num=num_pics)))
-    image_list = []
-    for index in target_indexs:
-        frame = movies[int(index)]
-        image_list.append(frame)
-
-    cap.release()
-
-    image_list = [cv2.cvtColor(image, cv2.COLOR_BGR2RGB) for image in image_list]
-    return image_list, required_fps
-
-
-def convert_to_video(path, frames, fps, prefix=None, mode="gif"):
-    if not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
-    index = len([path for path in os.listdir(path)]) + 1
-    if prefix is None:
-        prefix = str(index).zfill(8)
-    video_path = os.path.join(path, prefix + f".{mode}")
-
-    if mode == "gif":
-        import imageio.v3 as imageio
-
-        try:
-            pass
-        except ImportError:
-            from launch import run_pip
-
-            run_pip(
-                "install imageio[pyav]",
-                "sd-webui-animatediff GIF palette optimization requirement: imageio[pyav]",
-            )
-        video_array = [np.array(v) for v in frames]
-        imageio.imwrite(
-            video_path,
-            video_array,
-            plugin="pyav",
-            fps=fps,
-            codec="gif",
-            out_pixel_format="pal8",
-            filter_graph=(
-                {
-                    "split": ("split", ""),
-                    "palgen": ("palettegen", ""),
-                    "paluse": ("paletteuse", ""),
-                    "scale": ("scale", f"{frames[0].width}:{frames[0].height}"),
-                },
-                [
-                    ("video_in", "scale", 0, 0),
-                    ("scale", "split", 0, 0),
-                    ("split", "palgen", 1, 0),
-                    ("split", "paluse", 0, 0),
-                    ("palgen", "paluse", 0, 1),
-                    ("paluse", "video_out", 0, 0),
-                ],
-            ),
-        )
-
-        return None, video_path, prefix
-    else:
-        frames = [np.array(frame) for frame in frames]
-        frames = torch.from_numpy(np.array(frames))
-        if not os.path.exists(os.path.dirname(video_path)):
-            os.makedirs(os.path.dirname(video_path))
-        torchvision.io.write_video(video_path, frames, fps=fps, video_codec="libx264")
-
-        return video_path, None, prefix
-
-
-def modelscope_models_to_cpu():
-    """Load models to cpu to free VRAM."""
-    ms_models = [
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.retinaface_detection,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.image_face_fusion,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.skin_retouching,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.portrait_enhancement,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_skin,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_recognition,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.psgan_inference,
-    ]
-    for ms_model in ms_models:
-        if hasattr(ms_model, "__dict__"):
-            for key in ms_model.__dict__.keys():
-                try:
-                    if hasattr(getattr(ms_model, key), "cpu"):
-                        getattr(ms_model, key).cpu()
-                except Exception as e:
-                    traceback.print_exc()
-                    ep_logger.info(f"{str(ms_model)}.{key} has no cpu(), detailed error infor is {e}")
-
-    gc.collect()
-    torch.cuda.empty_cache()
-    torch.cuda.ipc_collect()
-
-
-def modelscope_models_to_gpu():
-    """Load models to cuda."""
-    ms_models = [
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.retinaface_detection,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.image_face_fusion,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.skin_retouching,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.portrait_enhancement,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_skin,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_recognition,
-        extensions.sd_EasyPhoto.scripts.easyphoto_infer.psgan_inference,
-    ]
-    for ms_model in ms_models:
-        if hasattr(ms_model, "__dict__"):
-            for key in ms_model.__dict__.keys():
-                try:
-                    if hasattr(getattr(ms_model, key), "cuda"):
-                        getattr(ms_model, key).cuda()
-                except Exception as e:
-                    traceback.print_exc()
-                    ep_logger.info(f"{str(ms_model)}.{key} has no cuda(), detailed error infor is {e}")
-
-    gc.collect()
-    torch.cuda.empty_cache()
-    torch.cuda.ipc_collect()
-
-
-class switch_ms_model_cpu(ContextDecorator):
-    """Context-manager that supports switch modelscope models to cpu and cuda"""
-
-    def __enter__(self):
-        modelscope_models_to_cpu()
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        modelscope_models_to_gpu()
-
-
-def unload_models():
-    """Unload models to free VRAM."""
-    extensions.sd_EasyPhoto.scripts.easyphoto_infer.retinaface_detection = None
-    extensions.sd_EasyPhoto.scripts.easyphoto_infer.image_face_fusion = None
-    extensions.sd_EasyPhoto.scripts.easyphoto_infer.skin_retouching = None
-    extensions.sd_EasyPhoto.scripts.easyphoto_infer.portrait_enhancement = None
-    extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_skin = None
-    extensions.sd_EasyPhoto.scripts.easyphoto_infer.face_recognition = None
-    extensions.sd_EasyPhoto.scripts.easyphoto_infer.psgan_inference = None
-    gc.collect()
-    torch.cuda.empty_cache()
-    torch.cuda.ipc_collect()
-    return "Already Empty Cache of Preprocess Model in EasyPhoto"
-
-
-class cleanup_decorator(ContextDecorator):
-    """Context-manager that supports cleanup cache."""
-
-    def __enter__(self):
-        pass
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if not shared.opts.data.get("easyphoto_cache_model", True):
-            unload_models()
-        else:
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                torch.cuda.ipc_collect()
-        print("Cleanup completed.")
-
-
-def seed_everything(seed=11):
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-def get_controlnet_version() -> str:
-    """Borrowed from sd-webui-controlnet/patch_version.py."""
-    version_file = "scripts/controlnet_version.py"
-    version_file_path = os.path.join(controlnet_extensions_path, version_file)
-    if not os.path.exists(version_file_path):
-        builtin_version_file_path = os.path.join(controlnet_extensions_builtin_path, version_file)
-        if not os.path.exists(builtin_version_file_path):
-            return "0.0.0"
-        else:
-            with open(builtin_version_file_path, "r") as f:
-                content = f.read()
-    else:
-        with open(version_file_path, "r") as f:
-            content = f.read()
-    version_pattern = r"version_flag\s*=\s*'v(\d+\.\d+\.\d+)'"
-    controlnet_version = re.search(version_pattern, content).group(1)
-
-    return controlnet_version
-
-
-# Function to encode a video file to Base64
-def encode_video_to_base64(video_file_path):
-    with open(video_file_path, "rb") as video_file:
-        # Read the video file as binary data
-        video_data = video_file.read()
-        # Encode the data to Base64
-        video_base64 = base64.b64encode(video_data)
-        return video_base64
-
-
-# Function to decode Base64 encoded data and save it as a video file
-def decode_base64_to_video(encoded_video, output_file_path):
-    with open(output_file_path, "wb") as output_file:
-        # Decode the Base64 encoded data
-        video_data = base64.b64decode(encoded_video)
-        # Write the decoded binary data to the file
-        output_file.write(video_data)
