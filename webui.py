@@ -55,12 +55,13 @@ def api_only():
 def webui():
     from modules.shared_cmd_options import cmd_opts
 
-    launch_api = cmd_opts.api
+    launch_api = True # cmd_opts.api
 
     if launch_api:
         global cache
         from modules import shared
 
+        # TODO: 将参数里指定的 S3 路径的模型下载到本地
         models_config_s3uri = os.environ.get('models_config_s3uri', None)
         if models_config_s3uri:
             bucket, key = shared.get_bucket_and_key(models_config_s3uri)
@@ -83,7 +84,6 @@ def webui():
             s3_embeddings = json.loads(s3_embeddings) if s3_embeddings else None
             s3_vaes = os.environ.get('s3_vaes', None)
             s3_vaes = json.loads(s3_vaes) if s3_vaes else None
-
         if huggingface_models:
             for huggingface_model in huggingface_models:
                 repo_id = huggingface_model['repo_id']
@@ -96,27 +96,23 @@ def webui():
                     local_dir=f'/tmp/models/{name}',
                     cache_dir='/tmp/cache/huggingface'
                 )
-
         if s3_models:
             for s3_model in s3_models:
                 uri = s3_model['uri']
                 name = s3_model['name']
                 shared.s3_download(uri, f'/tmp/models/{name}')
-
         if http_models:
             for http_model in http_models:
                 uri = http_model['uri']
                 filename = http_model['filename']
                 name = http_model['name']
                 shared.http_download(uri, f'/tmp/models/{name}/{filename}')
-
         if s3_embeddings:
             print("s3_embeddings:", s3_embeddings)
             for s3_embedding in s3_embeddings:
                 uri = s3_embedding['uri']
                 name = s3_embedding['name']
                 shared.s3_download(uri, f'/tmp/{name}')  # /tmp/embeddings
-
         if s3_vaes:
             print("s3_vaes:", s3_vaes)
             for s3_vae in s3_vaes:
@@ -129,6 +125,7 @@ def webui():
         cn_models_tmp_dir = f"{shared.tmp_models_dir}/ControlNet/"
         lora_models_tmp_dir = f"{shared.tmp_models_dir}/Lora/"
         cache_dir = f"{shared.tmp_cache_dir}/"
+        # TODO: 登陆 AWS 账户
         session = boto3.Session()
         region_name = session.region_name
         sts_client = session.client('sts')
@@ -139,11 +136,11 @@ def webui():
             shared.s3_folder_sd = "stable-diffusion-webui/models/Stable-diffusion"
             shared.s3_folder_cn = "stable-diffusion-webui/models/ControlNet"
             shared.s3_folder_lora = "stable-diffusion-webui/models/Lora"
-        #only download the cn models and the first sd model from default bucket, to accerlate the startup time
-        initial_s3_download(shared.s3_client, shared.s3_folder_sd, sd_models_tmp_dir,cache_dir,'sd')
-        sync_s3_folder(sd_models_tmp_dir, cache_dir, 'sd')
-        sync_s3_folder(cn_models_tmp_dir, cache_dir, 'cn')
-        sync_s3_folder(lora_models_tmp_dir, cache_dir, 'lora')
+        # only download the cn models and the first sd model from default bucket, to accerlate the startup time
+        # initial_s3_download(shared.s3_client, shared.s3_folder_sd, sd_models_tmp_dir,cache_dir,'sd')
+        # sync_s3_folder(sd_models_tmp_dir, cache_dir, 'sd')
+        # sync_s3_folder(cn_models_tmp_dir, cache_dir, 'cn')
+        # sync_s3_folder(lora_models_tmp_dir, cache_dir, 'lora')
 
     initialize.initialize()
 
