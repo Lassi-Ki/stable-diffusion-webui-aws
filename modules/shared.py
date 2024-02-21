@@ -166,11 +166,7 @@ def upload_image_to_s3(output_file_path, user_id, unique_id):
     key += "/" + user_id
     for filename in os.listdir(output_file_path):
         file_path = os.path.join(output_file_path, filename)
-        s3_client.put_object(
-            Body=open(file_path, 'rb'),
-            Bucket=bucket,
-            Key=f'{key}/{unique_id}_{filename}'
-        )
+        s3_client.upload_file(file_path, bucket, f'{key}/{unique_id}_{filename}')
 
 
 def download_dataset_from_s3(s3uri, path):
