@@ -4,9 +4,6 @@ import time
 from modules import timer
 from modules import initialize_util
 from modules import initialize
-from modules.shared_cmd_options import cmd_opts
-from modules.api.api import Api
-from modules.call_queue import queue_lock
 
 startup_timer = timer.startup_timer
 startup_timer.record("launcher")
@@ -26,11 +23,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_EasyPhoto
 
 
 def create_api(app):
+    from modules.api.api import Api
+    from modules.call_queue import queue_lock
     api = Api(app, queue_lock)
     return api
 
 
 def webui():
+    from modules.shared_cmd_options import cmd_opts
     launch_api = True
 
     if launch_api:
