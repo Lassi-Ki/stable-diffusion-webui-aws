@@ -323,20 +323,18 @@ class PayloadChecks(BaseModel):
 class InvocationsRequest(BaseModel):
     task: str
     model: Optional[str]
-    id: Optional[str]
+    userId: Optional[str]
+    unique_id: Optional[str]
+    # TODO: Endpoint端口操作模式，通过请求将 S3 路径传入本地
     s3Url: Optional[str]
-    # task: str
-    # id: Optional[str]
-    # model: Optional[str]
-    # vae: Optional[str]
-    # quality: Optional[int]
-    # options: Optional[str]
-    # txt2img_payload: Optional[StableDiffusionTxt2ImgProcessingAPI]
-    # img2img_payload: Optional[StableDiffusionImg2ImgProcessingAPI]
-    # extras_single_payload: Optional[ExtrasSingleImageRequest]
-    # extras_batch_payload: Optional[ExtrasBatchImagesRequest]
-    # interrogate_payload: Optional[InterrogateRequest]
-    # extra_payloads: Optional[PayloadChecks]
+    s3ModeUrl: Optional[str]
+
+    # Train
+    max_train_steps: Optional[int]
+    steps_per_photos: Optional[int]
+    rank: Optional[int]
+    network_alpha: Optional[int]
+
 
 class InvocationsErrorResponse(BaseModel):
     error: str = Field(title="Invocation error", description="Error response from invocation.")

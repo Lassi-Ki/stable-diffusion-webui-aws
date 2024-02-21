@@ -149,6 +149,7 @@ endpointUrl = s3_client.meta.endpoint_url
 s3_client = boto3.client('s3', endpoint_url=endpointUrl, region_name=region_name)
 s3_resource= boto3.resource('s3')
 generated_images_s3uri = os.environ.get('generated_images_s3uri', None)
+generated_lora_s3uri = os.environ.get('generated_lora_s3uri', 's3://sagemaker-us-west-2-011299426194/easyphoto_lora/')
 
 
 def get_bucket_and_key(s3uri):
@@ -156,6 +157,20 @@ def get_bucket_and_key(s3uri):
     bucket = s3uri[5 : pos]
     key = s3uri[pos + 1 : ]
     return bucket, key
+
+
+def upload_image_to_s3(output_file_path, user_id, unique_id):
+    bucket, key = get_bucket_and_key(generated_images_s3uri)
+    if key.endswith('/'):
+        key = key[:-1]
+    key += "/" + user_id
+    for filename in os.listdir(output_file_path):
+        file_path = os.path.join(output_file_path, filename)
+        s3_client.put_object(
+            Body=open(file_path, 'rb'),
+            Bucket=bucket,
+            Key=f'{key}/{unique_id}_{filename}'
+        )
 
 
 def download_dataset_from_s3(s3uri, path):
@@ -176,20 +191,6 @@ def download_dataset_from_s3(s3uri, path):
         if obj.key[-1] == '/':
             continue
         bucket.download_file(obj.key, target)
-    # response = s3.list_objects_v2(Bucket=bucket, Prefix=key)
-    # for obj in response.get('Contents', []):
-    #     key = obj['Key']
-    #     if key.endswith('.jpg') or key.endswith('.png') or key.endswith('.jpeg'):
-    #         local_path = os.path.join(path, os.path.basename(key))
-    #         s3.download_file(bucket, key, local_path)
-    #         print(f'Downloaded {key} to {local_path}')
-    #
-    # s3 = boto3.resource('s3')
-    # bucket = s3.Bucket('sagemaker-us-west-2-011299426194')
-    # for obj in bucket.objects.filter(Prefix=s3uri):
-    #     if not os.path.exists(os.path.dirname(obj.key)):
-    #         os.makedirs(os.path.dirname(obj.key))
-    #     bucket.download_file(obj.key, obj.key)
 
 
 def s3_download(s3uri, path):

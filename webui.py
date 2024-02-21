@@ -4,6 +4,9 @@ import time
 from modules import timer
 from modules import initialize_util
 from modules import initialize
+from modules.shared_cmd_options import cmd_opts
+from modules.api.api import Api
+from modules.call_queue import queue_lock
 
 startup_timer = timer.startup_timer
 startup_timer.record("launcher")
@@ -23,39 +26,12 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'extensions/sd_EasyPhoto
 
 
 def create_api(app):
-    from modules.api.api import Api
-    from modules.call_queue import queue_lock
-
     api = Api(app, queue_lock)
     return api
 
 
-def api_only():
-    from fastapi import FastAPI
-    from modules.shared_cmd_options import cmd_opts
-
-    initialize.initialize()
-
-    app = FastAPI()
-    initialize_util.setup_middleware(app)
-    api = create_api(app)
-
-    from modules import script_callbacks
-    script_callbacks.before_ui_callback()
-    script_callbacks.app_started_callback(None, app)
-
-    print(f"Startup time: {startup_timer.summary()}.")
-    api.launch(
-        server_name="0.0.0.0" if cmd_opts.listen else "127.0.0.1",
-        port=cmd_opts.port if cmd_opts.port else 7861,
-        root_path=f"/{cmd_opts.subpath}" if cmd_opts.subpath else ""
-    )
-
-
 def webui():
-    from modules.shared_cmd_options import cmd_opts
-
-    launch_api = True # cmd_opts.api
+    launch_api = True
 
     if launch_api:
         global cache
@@ -119,13 +95,15 @@ def webui():
                 uri = s3_vae['uri']
                 name = s3_vae['name']
                 shared.s3_download(uri, f'/tmp/models/{name}')
+        # TODO: 一次性服务器模式时直接将模板和数据集从 S3 下载到本地
+
+
 
         print(os.system('df -h'))
         sd_models_tmp_dir = f"{shared.tmp_models_dir}/Stable-diffusion/"
         cn_models_tmp_dir = f"{shared.tmp_models_dir}/ControlNet/"
         lora_models_tmp_dir = f"{shared.tmp_models_dir}/Lora/"
         cache_dir = f"{shared.tmp_cache_dir}/"
-        # TODO: 登陆 AWS 账户
         session = boto3.Session()
         region_name = session.region_name
         sts_client = session.client('sts')
@@ -138,8 +116,8 @@ def webui():
             shared.s3_folder_lora = "stable-diffusion-webui/models/Lora"
         # only download the cn models and the first sd model from default bucket, to accerlate the startup time
         # initial_s3_download(shared.s3_client, shared.s3_folder_sd, sd_models_tmp_dir,cache_dir,'sd')
-        # sync_s3_folder(sd_models_tmp_dir, cache_dir, 'sd')
-        # sync_s3_folder(cn_models_tmp_dir, cache_dir, 'cn')
+        sync_s3_folder(sd_models_tmp_dir, cache_dir, 'sd')
+        sync_s3_folder(cn_models_tmp_dir, cache_dir, 'cn')
         # sync_s3_folder(lora_models_tmp_dir, cache_dir, 'lora')
 
     initialize.initialize()

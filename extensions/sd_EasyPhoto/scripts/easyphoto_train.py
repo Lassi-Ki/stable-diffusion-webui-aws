@@ -23,6 +23,7 @@ from extensions.sd_EasyPhoto.scripts.easyphoto_utils import (
      unload_models)
 from extensions.sd_EasyPhoto.scripts.sdwebui import get_checkpoint_type, unload_sd
 from extensions.sd_EasyPhoto.scripts.train_kohya.utils.lora_utils import convert_lora_to_safetensors
+from modules import shared
 
 python_executable_path = sys.executable
 # base, portrait, sdxl
@@ -35,6 +36,7 @@ def easyphoto_train_forward(
     sd_model_checkpoint: str,
     id_task: str,
     user_id: str,
+    unique_id: str,
     train_mode_choose: str,
     resolution: int,
     val_and_checkpointing_steps: int,
@@ -57,12 +59,12 @@ def easyphoto_train_forward(
     *args,
 ):
     global check_hash
-    print(f'lora training v2: {user_id} start...')
+    print(f'lora training v2: {unique_id} start...')
 
-    if user_id == "" or user_id is None:
+    if unique_id == "" or unique_id is None:
         ep_logger.error("User id cannot be set to empty.")
         return "User id cannot be set to empty."
-    if user_id == "none":
+    if unique_id == "none":
         ep_logger.error("User id cannot be set to none.")
         return "User id cannot be set to none."
 
@@ -73,10 +75,9 @@ def easyphoto_train_forward(
             if check_id_valid(_id, user_id_outpath_samples, models_path):
                 ids.append(_id)
     ids = sorted(ids)
-    if user_id in ids:
+    if unique_id in ids:
         ep_logger.error("User id non-repeatability.")
         return "User id non-repeatability."
-    print(f'Now ids: {ids}')
     
     if len(instance_images) == 0:
         ep_logger.error("Please upload training photos.")
@@ -86,6 +87,7 @@ def easyphoto_train_forward(
         ep_logger.error("The network alpha {} must not exceed rank {}. " "It will result in an unintended LoRA.".format(network_alpha, rank))
         return "The network alpha {} must not exceed rank {}. " "It will result in an unintended LoRA.".format(network_alpha, rank)
 
+    # TODO: 将训练所需资源从 S3 下载到本地（当前方式为从网络下载）
     check_files_exists_and_download(check_hash.get("base", True), "base")
     check_files_exists_and_download(check_hash.get("portrait", True), "portrait")
     check_hash["base"] = False
@@ -123,29 +125,30 @@ def easyphoto_train_forward(
     # Template address
     training_templates_path = os.path.join(easyphoto_models_path, "training_templates")
     # Raw data backup
-    original_backup_path = os.path.join(cache_outpath_samples, user_id, "original_backup")
+    original_backup_path = os.path.join(cache_outpath_samples, unique_id, "original_backup")
     # Reference backup of face
     if train_scene_lora_bool:
-        ref_image_path = os.path.join(models_path, f"Lora/{user_id}.jpg")
+        ref_image_path = os.path.join(models_path, f"Lora/{unique_id}.jpg")
     else:
-        ref_image_path = os.path.join(cache_outpath_samples, user_id, "ref_image.jpg")
+        ref_image_path = os.path.join(cache_outpath_samples, unique_id, "ref_image.jpg")
 
     # Training data retention
-    user_path = os.path.join(cache_outpath_samples, user_id, "processed_images")
-    images_save_path = os.path.join(cache_outpath_samples, user_id, "processed_images", "train")
-    json_save_path = os.path.join(cache_outpath_samples, user_id, "processed_images", "metadata.jsonl")
+    user_path = os.path.join(cache_outpath_samples, unique_id, "processed_images")
+    images_save_path = os.path.join(cache_outpath_samples, unique_id, "processed_images", "train")
+    json_save_path = os.path.join(cache_outpath_samples, unique_id, "processed_images", "metadata.jsonl")
 
     # Training weight saving
-    weights_save_path = os.path.join(cache_outpath_samples, user_id, "user_weights")
-    webui_save_path = os.path.join(models_path, f"Lora/{user_id}.safetensors")
+    weights_save_path = os.path.join(cache_outpath_samples, unique_id, "user_weights")
+    webui_save_path = os.path.join(models_path, f"Lora/{unique_id}.safetensors")
     webui_load_path = os.path.join(models_path, f"Stable-diffusion", sd_model_checkpoint)
     sd_save_path = os.path.join(easyphoto_models_path, "stable-diffusion-v1-5")
     if sdxl_pipeline_flag:
-        sd_save_path = sd_save_path.replace("stable-diffusion-v1-5", "stable-diffusion-xl/stabilityai_stable_diffusion_xl_base_1.0")
+        sd_save_path = sd_save_path.replace("stable-diffusion-v1-5",
+                                            "stable-diffusion-xl/stabilityai_stable_diffusion_xl_base_1.0")
     if enable_rl and not train_scene_lora_bool:
-        ddpo_weight_save_path = os.path.join(cache_outpath_samples, user_id, "ddpo_weights")
-        face_lora_path = os.path.join(weights_save_path, f"best_outputs/{user_id}.safetensors")
-        ddpo_webui_save_path = os.path.join(models_path, f"Lora/ddpo_{user_id}.safetensors")
+        ddpo_weight_save_path = os.path.join(cache_outpath_samples, unique_id, "ddpo_weights")
+        face_lora_path = os.path.join(weights_save_path, f"best_outputs/{unique_id}.safetensors")
+        ddpo_webui_save_path = os.path.join(models_path, f"Lora/ddpo_{unique_id}.safetensors")
 
     os.makedirs(original_backup_path, exist_ok=True)
     os.makedirs(user_path, exist_ok=True)
@@ -263,7 +266,7 @@ def easyphoto_train_forward(
             f"--template_dir={os.path.relpath(training_templates_path, pwd)}",
             "--template_mask",
             "--merge_best_lora_based_face_id",
-            f"--merge_best_lora_name={user_id}",
+            f"--merge_best_lora_name={unique_id}",
             f"--cache_log_file={cache_log_file_path}",
         ]
         if validation and not train_scene_lora_bool:
@@ -293,7 +296,7 @@ def easyphoto_train_forward(
                 "--main_process_port=4567",
                 "--num_processes=1",
                 f"{train_ddpo_path}",
-                f"--run_name={user_id}",
+                f"--run_name={unique_id}",
                 f"--logdir={os.path.relpath(ddpo_weight_save_path, pwd)}",
                 f"--cache_log_file={cache_log_file_path}",
                 f"--pretrained_model_name_or_path={os.path.relpath(sd_save_path, pwd)}",
@@ -365,7 +368,7 @@ def easyphoto_train_forward(
             f"--template_dir={training_templates_path}",
             "--template_mask",
             "--merge_best_lora_based_face_id",
-            f"--merge_best_lora_name={user_id}",
+            f"--merge_best_lora_name={unique_id}",
             f"--cache_log_file={cache_log_file_path}",
         ]
         if validation and not train_scene_lora_bool:
@@ -395,7 +398,7 @@ def easyphoto_train_forward(
                 "--main_process_port=4567",
                 "--num_processes=1",
                 f"{train_ddpo_path}",
-                f"--run_name={user_id}",
+                f"--run_name={unique_id}",
                 f"--logdir={ddpo_weight_save_path}",
                 f"--cache_log_file={cache_log_file_path}",
                 f"--pretrained_model_name_or_path={sd_save_path}",
@@ -433,7 +436,7 @@ def easyphoto_train_forward(
                 with open(cache_log_file_path, "w") as _:
                     pass
 
-    best_weight_path = os.path.join(weights_save_path, f"best_outputs/{user_id}.safetensors")
+    best_weight_path = os.path.join(weights_save_path, f"best_outputs/{unique_id}.safetensors")
     # Currently, SDXL training doesn't support the model selection and ensemble. We use the final
     # trained model as the best for simplicity.
     if sdxl_pipeline_flag:
@@ -442,6 +445,8 @@ def easyphoto_train_forward(
         return "Failed to obtain Lora after training, please check the training process."
 
     copyfile(best_weight_path, webui_save_path)
+    # TODO: 将训练好的 lora 模型上传到 S3 （注意路径在 user_id 文件夹下）
+    post_lora(best_weight_path, user_id, unique_id)
 
     if enable_rl and not train_scene_lora_bool:
         # Currently, the best (reward_mean) ddpo lora checkpoint will be selected and saved to the WebUI Lora folder.
@@ -452,3 +457,15 @@ def easyphoto_train_forward(
         convert_lora_to_safetensors(ddpo_lora_path, ddpo_webui_save_path)
 
     return "The training has been completed."
+
+
+def post_lora(lora_path, user_id, unique_id):
+    bucket, key = shared.get_bucket_and_key(shared.generated_lora_s3uri)
+    if key.endswith('/'):
+        key = key[:-1]
+    key += "/" + user_id
+    shared.s3_client.put_object(
+        Body=open(lora_path, 'rb'),
+        Bucket=bucket,
+        Key=f'{key}/{unique_id}.safetensors'
+    )

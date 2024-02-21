@@ -934,12 +934,17 @@ class Api:
                     with self.queue_lock:
                         reload_model_weights()
                     if sd_model_checkpoint == shared.opts.sd_model_checkpoint:
+                        # 底模没有变化，再次加载 vae 模型
                         reload_vae_weights()
-
-                # Train
-                user_path = f'./datasets/{req.id}'
+                # ---------------------------------------------------------------
+                #                               Train
+                # ---------------------------------------------------------------
+                # 请求任务模式，临时下载数据集
+                user_path = f'./datasets/{req.userId}/{req.unique_id}'
                 if req.s3Url !='':
+                    print(f'user_path: {user_path}, download dataset from s3: {req.s3Url}.')
                     shared.download_dataset_from_s3(req.s3Url, user_path)
+                    print(f'download dataset from s3: {req.s3Url} success.')
 
                 img_list = os.listdir(user_path)
                 encoded_images = []
@@ -948,68 +953,69 @@ class Api:
                     with open(img_path, "rb") as f:
                         encoded_image = base64.b64encode(f.read()).decode("utf-8")
                         encoded_images.append(encoded_image)
-                print(f'encoded_images size: {len(encoded_images)}')
-                time_start = time.time()
                 # easyphoto_train
                 payload_train = {
                     "sd_model_checkpoint": req.model,
-                    "user_id": req.id,
+                    "user_id": req.userId,
+                    "unique_id": req.unique_id,
                     "instance_images": encoded_images,
+                    "max_train_steps": req.max_train_steps,
+                    "steps_per_photos": req.steps_per_photos,
+                    "rank": req.rank,
+                    "network_alpha": req.network_alpha
                 }
                 outputs = self.easyphoto_train(payload_train)
-                time_end = time.time()
-                time_sum = (time_end - time_start) // 60
-                print("# --------------------------------------------------------- #")
-                print(f"#   Total expenditure：{time_sum} minutes ")
-                print("# --------------------------------------------------------- #")
                 print(outputs["message"])
 
                 time.sleep(10)
 
-                # Inference
+                # ---------------------------------------------------------------
+                #                             Inference
+                # ---------------------------------------------------------------
                 image_formats = ["*.jpg", "*.jpeg", "*.png", "*.webp"]
                 img_list = []
                 template_dir = './extensions/sd_EasyPhoto/models/infer_templates/'
+                # 从提供的 S3 地址下载模板
+                if req.s3ModeUrl != '':
+                    print(f'download template from s3: {req.s3ModeUrl}')
+                    shared.download_dataset_from_s3(req.s3ModeUrl, template_dir)
+                    print(f'download template from s3: {req.s3ModeUrl} success.')
+
                 for image_format in image_formats:
                     img_list.extend(glob(os.path.join(template_dir, image_format)))
                 if len(img_list) == 0:
-                    print(f" Input template dir {template_dir} contains no images")
+                    print(f"Input template dir {template_dir} contains no images")
                 else:
-                    print(f" Total {len(img_list)} templates to process for {req.id} ID")
-                print(img_list)
-                now_date = datetime.datetime.now()
-                time_start = time.time()
-                output_path = './outputs_easyphoto/'
+                    print(f"Total {len(img_list)} templates to process for {req.unique_id} ID")
+                output_path = f'./outputs_easyphoto/{req.unique_id}/'
                 selected_template_images = []
 
                 for img_path in tqdm(img_list):
-                    # print(f" Call generate for ID ({req.id}) and Template ({img_path})")
                     with open(img_path, "rb") as f:
                         encoded_image = base64.b64encode(f.read()).decode("utf-8")
                         selected_template_images.append(encoded_image)
 
                 payload_infer = {
-                    "user_ids": [req.id],
+                    "user_ids": [req.unique_id],
                     "sd_model_checkpoint": req.model,
-                    "selected_template_images": [encoded_image],
+                    "selected_template_images": selected_template_images,
                 }
                 outputs = self.easyphoto_infer(payload_infer)
-                if len(outputs["outputs"]):
-                    image = decode_image_from_base64jpeg(outputs["outputs"][0])
-                    toutput_path = os.path.join(os.path.join(output_path),
-                                                f"{req.id}_" + os.path.basename(img_path))
-                    print(output_path)
-                    cv2.imwrite(toutput_path, image)
+                if len(outputs["outputs"]) == len(img_list):
+                    for idx, img_path_output in enumerate(img_list):
+                        image = decode_image_from_base64jpeg(outputs["outputs"][idx])
+                        output_path = os.path.join(os.path.join(output_path),
+                                                    f"{req.unique_id}_" + os.path.basename(img_path_output))
+                        print(output_path)
+                        cv2.imwrite(output_path, image)
+                    # 最终将用户数据集上传到 S3 （ user_id / uuid 路径下）
+                    shared.upload_image_to_s3(output_path, req.userId, req.unique_id)
+                elif len(outputs["outputs"]) != len(img_list):
+                    print("Error! len(outputs[\"outputs\"]) != len(img_list).")
                 else:
                     print("Error!", outputs["message"])
                 print(outputs["message"])
-                time_end = time.time()
-                time_sum = time_end - time_start
-                print("# --------------------------------------------------------- #")
-                print(f"#   Total expenditure: {time_sum}s")
-                print("# --------------------------------------------------------- #")
 
-                # response.images = self.post_invocations(response.images, quality, req.extra_payloads.user_id)
                 return outputs
 
             except Exception as e:
@@ -1052,6 +1058,7 @@ class Api:
         sd_model_checkpoint = datas.get("sd_model_checkpoint", "sd_xl_base_1.0.safetensors")
         id_task = datas.get("id_task", "")
         user_id = datas.get("user_id", "test")
+        unique_id = datas.get("unique_id", "test")
         train_mode_choose = datas.get("train_mode_choose", "Train Human Lora")
         resolution = datas.get("resolution", 1024)
         val_and_checkpointing_steps = datas.get("val_and_checkpointing_steps", 100)
@@ -1088,6 +1095,7 @@ class Api:
                 sd_model_checkpoint,
                 id_task,
                 user_id,
+                unique_id,
                 train_mode_choose,
                 resolution,
                 val_and_checkpointing_steps,
@@ -1163,7 +1171,7 @@ class Api:
         makeup_transfer = datas.get("makeup_transfer", False)
         makeup_transfer_ratio = datas.get("makeup_transfer_ratio", 0.50)
         face_shape_match = datas.get("face_shape_match", False)
-        tabs = datas.get("tabs", 1)
+        tabs = datas.get("tabs", 0)
 
         ipa_control = datas.get("ipa_control", False)
         ipa_weight = datas.get("ipa_weight", 0.50)
