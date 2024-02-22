@@ -536,6 +536,7 @@ def unet_attn_processors_state_dict(unet) -> Dict[str, torch.tensor]:
 def main():
     args = parse_args()
     logging_dir = Path(args.output_dir, args.logging_dir)
+    print("Train_lora_sd_XL working.....")
 
     accelerator_project_config = ProjectConfiguration(project_dir=args.output_dir, logging_dir=logging_dir)
 

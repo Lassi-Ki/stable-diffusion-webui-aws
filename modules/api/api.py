@@ -988,6 +988,10 @@ class Api:
                 else:
                     print(f"Total {len(img_list)} templates to process for {req.unique_id} ID")
                 output_path = f'./outputs_easyphoto/{req.unique_id}/'
+                if output_path is not None:
+                    # 如果文件夹不存在就创建它
+                    if not os.path.exists(output_path):
+                        os.makedirs(output_path)
                 selected_template_images = []
 
                 for img_path in tqdm(img_list):
@@ -1004,10 +1008,10 @@ class Api:
                 if len(outputs["outputs"]) == len(img_list):
                     for idx, img_path_output in enumerate(img_list):
                         image = decode_image_from_base64jpeg(outputs["outputs"][idx])
-                        output_path = os.path.join(os.path.join(output_path),
+                        output_img_path = os.path.join(os.path.join(output_path),
                                                     f"{req.unique_id}_" + os.path.basename(img_path_output))
-                        print(output_path)
-                        cv2.imwrite(output_path, image)
+                        print(output_img_path)
+                        cv2.imwrite(output_img_path, image)
                     # 最终将用户数据集上传到 S3 （ user_id / uuid 路径下）
                     shared.upload_image_to_s3(output_path, req.userId, req.unique_id)
                 elif len(outputs["outputs"]) != len(img_list):
