@@ -1,6 +1,6 @@
 GitPython
 Pillow
-accelerate
+accelerate==0.18.0
 
 basicsr
 blendmodes
