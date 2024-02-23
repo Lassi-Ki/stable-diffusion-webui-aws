@@ -982,6 +982,10 @@ class Api:
                     print(f'download template from s3: {req.s3ModeUrl} success.')
 
                 for image_format in image_formats:
+                    # 判断是不是图片格式文件
+                    if image_format not in ['*.jpg', '*.jpeg', '*.png', '*.webp']:
+                        continue
+                    print(glob(os.path.join(template_dir, image_format)))
                     img_list.extend(glob(os.path.join(template_dir, image_format)))
                 if len(img_list) == 0:
                     print(f"Input template dir {template_dir} contains no images")
@@ -1005,6 +1009,9 @@ class Api:
                     "selected_template_images": selected_template_images,
                 }
                 outputs = self.easyphoto_infer(payload_infer)
+                print("Infer results: ", outputs["message"])
+                print("Infer results numbers: ", len(outputs["outputs"]))
+                print("Mode images numbers: ", len(img_list))
                 if len(outputs["outputs"]) == len(img_list):
                     for idx, img_path_output in enumerate(img_list):
                         image = decode_image_from_base64jpeg(outputs["outputs"][idx])

@@ -1732,6 +1732,7 @@ def easyphoto_infer_forward(
                         traceback.print_exc()
                         ep_logger.error(f"Skin Retouching error: {e}")
 
+                # TODO: 上采样可能存在问题
                 if super_resolution:
                     try:
                         ep_logger.info("Start Portrait enhancement.")
