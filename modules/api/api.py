@@ -1031,7 +1031,8 @@ class Api:
 
             except Exception as e:
                 traceback.print_exc()
-                return models.InvocationsErrorResponse(error = str(e))
+                print("Error: ", str(e))
+                return models.InvocationsErrorResponse(error=str(e))
 
     def check_memory_and_collect_garbage(self, threshold=75):
         memory_info = psutil.virtual_memory()
