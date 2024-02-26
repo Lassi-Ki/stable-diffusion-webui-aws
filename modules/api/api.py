@@ -922,7 +922,7 @@ class Api:
         with self.invocations_lock:
             print('-------invocation------')
             print(req)
-            print("working..........")
+            # print("working..........")
 
             # check memory and collect garbage
             self.check_memory_and_collect_garbage()
@@ -942,7 +942,7 @@ class Api:
                 # 请求任务模式，临时下载数据集
                 user_path = f'./datasets/{req.userId}/{req.unique_id}'
                 if req.s3Url !='':
-                    print(f'user_path: {user_path}, download dataset from s3: {req.s3Url}.')
+                    # print(f'user_path: {user_path}, download dataset from s3: {req.s3Url}.')
                     shared.download_dataset_from_s3(req.s3Url, user_path)
                     print(f'download dataset from s3: {req.s3Url} success.')
 
@@ -965,7 +965,7 @@ class Api:
                     "network_alpha": req.network_alpha
                 }
                 outputs = self.easyphoto_train(payload_train)
-                print(outputs["message"])
+                print("Train outputs: ", outputs["message"])
 
                 time.sleep(10)
 
@@ -985,12 +985,13 @@ class Api:
                     # 判断是不是图片格式文件
                     if image_format not in ['*.jpg', '*.jpeg', '*.png', '*.webp']:
                         continue
-                    print(glob(os.path.join(template_dir, image_format)))
+                    # print(glob(os.path.join(template_dir, image_format)))
                     img_list.extend(glob(os.path.join(template_dir, image_format)))
                 if len(img_list) == 0:
                     print(f"Input template dir {template_dir} contains no images")
                 else:
                     print(f"Total {len(img_list)} templates to process for {req.unique_id} ID")
+                    print(img_list)
                 output_path = f'./outputs_easyphoto/{req.unique_id}/'
                 if output_path is not None:
                     # 如果文件夹不存在就创建它
@@ -1004,11 +1005,13 @@ class Api:
                         selected_template_images.append(encoded_image)
 
                 payload_infer = {
-                    "user_ids": [req.unique_id],
+                    "user_id": req.userId,
+                    "user_ids": req.unique_id,
                     "sd_model_checkpoint": req.model,
                     "selected_template_images": selected_template_images,
                 }
                 outputs = self.easyphoto_infer(payload_infer)
+                ##############################################################
                 print("Infer results: ", outputs["message"])
                 print("Infer results numbers: ", len(outputs["outputs"]))
                 print("Mode images numbers: ", len(img_list))
@@ -1016,7 +1019,8 @@ class Api:
                     for idx, img_path_output in enumerate(img_list):
                         image = decode_image_from_base64jpeg(outputs["outputs"][idx])
                         output_img_path = os.path.join(os.path.join(output_path),
-                                                    f"{req.unique_id}_" + os.path.basename(img_path_output))
+                                                    f"{req.unique_id}_" + 
+                                                    os.path.basename(img_path_output))
                         print(output_img_path)
                         cv2.imwrite(output_img_path, image)
                     # 最终将用户数据集上传到 S3 （ user_id / uuid 路径下）
@@ -1136,6 +1140,7 @@ class Api:
         return {"message": message}
 
     def easyphoto_infer(self, datas: dict):
+        user_id = datas.get("user_id", "test")
         user_ids = datas.get("user_ids", [])
         sd_model_checkpoint = datas.get("sd_model_checkpoint", "Chilloutmix-Ni-pruned-fp16-fix.safetensors")
         selected_template_images = datas.get("selected_template_images", [])
@@ -1249,6 +1254,7 @@ class Api:
         tabs = int(tabs)
         try:
             comment, outputs, face_id_outputs = easyphoto_infer_forward(
+                user_id,
                 sd_model_checkpoint,
                 selected_template_images,
                 init_image,
@@ -1306,6 +1312,7 @@ class Api:
             torch.cuda.empty_cache()
             comment = f"Infer error, error info:{str(e)}"
             outputs = []
+            print("Infer error, error info:", str(e))
             face_id_outputs_base64 = []
             traceback.print_exc()
 

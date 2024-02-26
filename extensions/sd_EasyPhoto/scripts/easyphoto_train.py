@@ -62,10 +62,10 @@ def easyphoto_train_forward(
     print(f'lora training v2: {unique_id} start...')
 
     if unique_id == "" or unique_id is None:
-        ep_logger.error("User id cannot be set to empty.")
+        # ep_logger.error("User id cannot be set to empty.")
         return "User id cannot be set to empty."
     if unique_id == "none":
-        ep_logger.error("User id cannot be set to none.")
+        # ep_logger.error("User id cannot be set to none.")
         return "User id cannot be set to none."
 
     ids = []
@@ -76,15 +76,15 @@ def easyphoto_train_forward(
                 ids.append(_id)
     ids = sorted(ids)
     if unique_id in ids:
-        ep_logger.error("User id non-repeatability.")
+        # ep_logger.error("User id non-repeatability.")
         return "User id non-repeatability."
     
     if len(instance_images) == 0:
-        ep_logger.error("Please upload training photos.")
+        # ep_logger.error("Please upload training photos.")
         return "Please upload training photos."
 
     if int(rank) < int(network_alpha):
-        ep_logger.error("The network alpha {} must not exceed rank {}. " "It will result in an unintended LoRA.".format(network_alpha, rank))
+        # ep_logger.error("The network alpha {} must not exceed rank {}. " "It will result in an unintended LoRA.".format(network_alpha, rank))
         return "The network alpha {} must not exceed rank {}. " "It will result in an unintended LoRA.".format(network_alpha, rank)
 
     # TODO: 将训练所需资源从 S3 下载到本地（当前方式为从网络下载）
@@ -95,7 +95,7 @@ def easyphoto_train_forward(
 
     checkpoint_type = get_checkpoint_type(sd_model_checkpoint)
     if checkpoint_type == 2:
-        ep_logger.error("EasyPhoto does not support the SD2 checkpoint: {}.".format(sd_model_checkpoint))
+        # ep_logger.error("EasyPhoto does not support the SD2 checkpoint: {}.".format(sd_model_checkpoint))
         return "EasyPhoto does not support the SD2 checkpoint: {}.".format(sd_model_checkpoint)
     sdxl_pipeline_flag = True if checkpoint_type == 3 else False
 
@@ -105,21 +105,21 @@ def easyphoto_train_forward(
 
     # check if user want to train Scene Lora
     train_scene_lora_bool = True if train_mode_choose == "Train Scene Lora" else False
-    if train_scene_lora_bool and float(crop_ratio) < 1:
-        ep_logger.warning("The crop ratio {} is smaller than 1. Use original photos to train the scene LoRA.".format(crop_ratio))
+    # if train_scene_lora_bool and float(crop_ratio) < 1:
+    #     ep_logger.warning("The crop ratio {} is smaller than 1. Use original photos to train the scene LoRA.".format(crop_ratio))
     cache_outpath_samples = scene_id_outpath_samples if train_scene_lora_bool else user_id_outpath_samples
 
     # Check conflicted arguments in SDXL training.
     if sdxl_pipeline_flag:
         if enable_rl:
-            ep_logger.error("EasyPhoto does not support RL with the SDXL checkpoint: {}.".format(sd_model_checkpoint))
+            # ep_logger.error("EasyPhoto does not support RL with the SDXL checkpoint: {}.".format(sd_model_checkpoint))
             return "EasyPhoto does not support RL with the SDXL checkpoint: {}.".format(sd_model_checkpoint)
         if int(resolution) < 1024:
-            ep_logger.error("The resolution for SDXL Training needs to be 1024.")
+            # ep_logger.error("The resolution for SDXL Training needs to be 1024.")
             return "The resolution for SDXL Training needs to be 1024."
         if validation:
             # We do not ensemble models by validation in SDXL training.
-            ep_logger.error("To save training time and VRAM, please turn off validation in SDXL training.")
+            # ep_logger.error("To save training time and VRAM, please turn off validation in SDXL training.")
             return "To save training time and VRAM, please turn off validation in SDXL training."
 
     # Template address
@@ -194,23 +194,24 @@ def easyphoto_train_forward(
     # check preprocess results
     train_images = glob(os.path.join(images_save_path, "*.jpg"))
     if len(train_images) == 0:
-        ep_logger.error("Failed to obtain preprocessed images, please check the preprocessing process.")
+        # ep_logger.error("Failed to obtain preprocessed images, please check the preprocessing process.")
         return "Failed to obtain preprocessed images, please check the preprocessing process."
     if not os.path.exists(json_save_path):
-        ep_logger.error("Failed to obtain preprocessed metadata.jsonl, please check the preprocessing process.")
+        # ep_logger.error("Failed to obtain preprocessed metadata.jsonl, please check the preprocessing process.")
         return "Failed to obtain preprocessed metadata.jsonl, please check the preprocessing process."
 
     if not sdxl_pipeline_flag:
         train_kohya_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "train_kohya/train_lora.py")
     else:
         train_kohya_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "train_kohya/train_lora_sd_XL.py")
-    ep_logger.info("train_file_path : {}".format(train_kohya_path))
+    # ep_logger.info("train_file_path : {}".format(train_kohya_path))
+    print(f'train_file_path : {train_kohya_path}')
     if enable_rl and not train_scene_lora_bool:
         train_ddpo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "train_kohya/train_ddpo.py")
-        ep_logger.info("train_ddpo_path : {}".format(train_kohya_path))
+        # ep_logger.info("train_ddpo_path : {}".format(train_kohya_path))
 
     # outputs/easyphoto-tmp/train_kohya_log.txt, use to cache log and flush to UI
-    ep_logger.info("cache_log_file_path: {}".format(cache_log_file_path))
+    # ep_logger.info("cache_log_file_path: {}".format(cache_log_file_path))
     if not os.path.exists(os.path.dirname(cache_log_file_path)):
         os.makedirs(os.path.dirname(cache_log_file_path), exist_ok=True)
 
@@ -426,7 +427,7 @@ def easyphoto_train_forward(
             max_rl_time = int(float(max_rl_time) * 60 * 60)
             env["MAX_RL_TIME"] = str(max_rl_time)
             try:
-                ep_logger.info("Start RL (reinforcement learning). The max time of RL is {}.".format(max_rl_time))
+                # ep_logger.info("Start RL (reinforcement learning). The max time of RL is {}.".format(max_rl_time))
                 # Since `accelerate` spawns a new process, set `timeout` in `subprocess.run` does not take effects.
                 subprocess.run(command, env=env, check=True)
             except subprocess.CalledProcessError as e:

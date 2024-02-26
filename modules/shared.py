@@ -159,6 +159,22 @@ def get_bucket_and_key(s3uri):
     return bucket, key
 
 
+def upload_image(output_file_path, user_id, unique_id):
+    bucket, key = get_bucket_and_key(generated_images_s3uri)
+    try:
+        file_name = os.path.basename(output_file_path)
+        if key.endswith('/'):
+            key = key[:-1]
+        key += "/" + user_id
+        __s3file = f'{key}/{unique_id}_{file_name}'
+        print(output_file_path, __s3file)
+        s3_client.upload_file(output_file_path, bucket, __s3file)
+    except ClientError as e:
+        print(e)
+        return False
+    return True
+
+
 def upload_image_to_s3(output_file_path, user_id, unique_id):
     bucket, key = get_bucket_and_key(generated_images_s3uri)
     if key.endswith('/'):
@@ -254,6 +270,7 @@ def upload_s3files(s3uri, file_path_with_pattern):
         print(e)
         return False
     return True
+
 
 def upload_s3folder(s3uri, file_path):
     pos = s3uri.find('/', 5)

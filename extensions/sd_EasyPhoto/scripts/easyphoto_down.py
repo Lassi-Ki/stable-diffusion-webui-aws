@@ -487,7 +487,7 @@ def check_files_exists_and_download(check_hash, download_mode="base"):
         if exist_flag:
             continue
 
-        ep_logger.info(f"Start Downloading: {url}")
+        # ep_logger.info(f"Start Downloading: {url}")
         os.makedirs(os.path.dirname(filename[0]), exist_ok=True)
         urldownload_progressbar(url, filename[0])
 
