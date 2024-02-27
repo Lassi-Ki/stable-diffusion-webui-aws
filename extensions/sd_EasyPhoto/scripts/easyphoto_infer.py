@@ -1772,11 +1772,12 @@ def easyphoto_infer_forward(
                 if not os.path.exists(output_path):
                     os.makedirs(output_path)
             print(f"Save template {str(template_idx + 1)} to S3.")
-            image = decode_image_from_numpy(np.array(output_image))
+
             output_img_path = os.path.join(os.path.join(output_path),
-                                        f"{user_ids[0]}_" + 
+                                        f"{user_ids[0]}_" +
                                         str(template_idx + 1))
-            cv2.imwrite(output_img_path, image)
+            output_image.save(output_img_path)
+
             if shared.upload_image(output_img_path, user_id, user_ids[0]):
                 print(f"Template {str(template_idx + 1)} Success.")
             else:
@@ -2901,20 +2902,3 @@ def easyphoto_video_infer_forward(
             loop_message += f"Template {str(template_idx + 1)} error: Error info is {e}."
 
     return loop_message, output_video, output_gif, outputs
-
-
-def post_single_image(image_path, user_id, unique_id):
-    bucket, key = shared.get_bucket_and_key(shared.generated_lora_s3uri)
-    if key.endswith('/'):
-        key = key[:-1]
-    key += "/" + user_id
-    shared.s3_client.put_object(
-        Body=open(image_path, 'rb'),
-        Bucket=bucket,
-        Key=f'{key}/{unique_id}.safetensors'
-    )
-
-
-def decode_image_from_numpy(np_arr):
-    image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-    return image
