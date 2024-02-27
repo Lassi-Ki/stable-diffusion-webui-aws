@@ -1772,7 +1772,7 @@ def easyphoto_infer_forward(
                 if not os.path.exists(output_path):
                     os.makedirs(output_path)
             print(f"Save template {str(template_idx + 1)} to S3.")
-            image = decode_image_from_base64jpeg(output_image)
+            image = decode_image_from_numpy(np.array(output_image))
             output_img_path = os.path.join(os.path.join(output_path),
                                         f"{user_ids[0]}_" + 
                                         str(template_idx + 1))
@@ -2915,8 +2915,6 @@ def post_single_image(image_path, user_id, unique_id):
     )
 
 
-def decode_image_from_base64jpeg(base64_image):
-    image_bytes = base64.b64decode(base64_image)
-    np_arr = np.frombuffer(image_bytes, np.uint8)
+def decode_image_from_numpy(np_arr):
     image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
     return image
