@@ -1776,7 +1776,7 @@ def easyphoto_infer_forward(
             output_img_path = os.path.join(os.path.join(output_path),
                                         f"{user_ids[0]}_" +
                                         str(template_idx + 1) +
-                                        ".jpg")
+                                        ".png")
             output_image.save(output_img_path)
 
             if shared.upload_image(output_img_path, user_id, user_ids[0]):
