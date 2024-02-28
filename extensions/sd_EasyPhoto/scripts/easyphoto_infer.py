@@ -1766,7 +1766,7 @@ def easyphoto_infer_forward(
                 output_image = template_image
             
             # Save the output image
-            output_path = f'./outputs_easyphoto/{user_ids[0]}/'
+            output_path = f'./outputs_easyphoto/{user_id}/{user_ids[0]}/'
             if output_path is not None:
                 # 如果文件夹不存在就创建它
                 if not os.path.exists(output_path):

@@ -166,7 +166,7 @@ def upload_image(output_file_path, user_id, unique_id):
         if key.endswith('/'):
             key = key[:-1]
         key += "/" + user_id
-        __s3file = f'{key}/{unique_id}_{file_name}'
+        __s3file = f'{key}/{unique_id}/{file_name}'
         print(output_file_path, __s3file)
         s3_client.upload_file(output_file_path, bucket, __s3file)
     except ClientError as e:
